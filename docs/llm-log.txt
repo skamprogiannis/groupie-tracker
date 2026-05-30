@@ -27,3 +27,11 @@ Entries:
    - Action: Created project documentation, moved subject/audit files into docs, implemented the Go API client, catalog, async search worker, HTTP server, templates, static assets, tests, and tracker-ready issue documentation.
    - Copied/Edited: Subject and audit files were moved unchanged; code and docs were newly generated from the agreed plan.
    - Affected: repository source, docs, tests, README, AGENTS.md.
+
+2. Task: Preserve future work and reduce main to M0
+   - Date: 2026-05-30
+   - Agent/Model: Codex
+   - Asked: Keep the full implementation in a different local-only branch and rewrite main so only M0 is implemented.
+   - Action: Created local branch `full-implementation-local` at the full implementation commit, reset main to the documentation commit, and added only a runnable M0 Go skeleton.
+   - Copied/Edited: Existing documentation was retained and README wording was edited to avoid claiming M2/M3 implementation on main.
+   - Affected: local Git history, README.md, go.mod, main.go, main_test.go, docs/llm-log.txt.
