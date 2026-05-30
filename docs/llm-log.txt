@@ -1,0 +1,29 @@
+LLM Usage Log - Groupie Tracker
+
+Format for new entries:
+
+N. Task: Short task name
+   - Date: YYYY-MM-DD
+   - Agent/Model: tool and model if known
+   - Asked: full prompt or concise prompt summary
+   - Action: what was generated, edited, or reviewed
+   - Copied/Edited: what was copied verbatim versus adapted
+   - Affected: files or issue numbers
+
+Entries:
+
+0. Task: Milestone and issue planning
+   - Date: 2026-05-30
+   - Agent/Model: Codex
+   - Asked: Create issues and milestones for a four-person Zone01 Groupie Tracker team, parallelizing work where possible.
+   - Action: Inspected the empty repository, original instructions, audit questions, nearby Zone01 project documentation, and drafted milestones plus tracker-ready issues.
+   - Copied/Edited: Requirements were adapted from the subject and audit files; issue wording was newly generated.
+   - Affected: planning conversation, later captured in docs/issues.md.
+
+1. Task: Initial implementation
+   - Date: 2026-05-30
+   - Agent/Model: Codex
+   - Asked: Implement the plan.
+   - Action: Created project documentation, moved subject/audit files into docs, implemented the Go API client, catalog, async search worker, HTTP server, templates, static assets, tests, and tracker-ready issue documentation.
+   - Copied/Edited: Subject and audit files were moved unchanged; code and docs were newly generated from the agreed plan.
+   - Affected: repository source, docs, tests, README, AGENTS.md.

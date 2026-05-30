@@ -1,0 +1,50 @@
+# Architecture - Groupie Tracker
+
+## 1. Overview
+
+The app is a standard-library Go HTTP server. It loads the Groupie Tracker API at startup, normalizes the four resources into an in-memory catalog, and serves HTML pages plus a JSON search endpoint.
+
+## 2. Data Flow
+
+```mermaid
+graph TD
+    API[Groupie Tracker API] --> Client[internal/groupie Client]
+    Client --> Catalog[Normalized Catalog]
+    Catalog --> Pages[HTML handlers]
+    Catalog --> Worker[Search worker]
+    Worker --> SearchAPI[GET /api/search]
+    SearchAPI --> Browser[Client-side result update]
+```
+
+## 3. Packages
+
+- `main`: process setup, API load, worker lifecycle, HTTP server startup, graceful shutdown.
+- `internal/groupie`: API structs, HTTP client, catalog join logic, search matching, async search worker.
+- `internal/web`: HTTP routing, templates, embedded static assets, HTML pages, JSON endpoint, error handling.
+
+## 4. Routes
+
+- `GET /`: home page with artist catalog and search form.
+- `GET /artist/{id}`: artist detail page.
+- `GET /api/search?q=...`: client-server event endpoint returning JSON.
+- `GET /healthz`: health check for deployment.
+- `/static/*`: embedded CSS and JavaScript assets.
+
+## 5. Async Event Design
+
+Search requests enter `GET /api/search`, which creates a timeout-bound context and sends the query to `SearchWorker`. The worker runs in a goroutine and communicates through channels. It searches the immutable in-memory catalog and replies through a per-request response channel. Closing the worker shuts down the goroutine safely.
+
+## 6. Error Handling
+
+- API client returns errors for failed requests and non-2xx statuses.
+- Unknown routes and bad artist IDs return a friendly 404 page.
+- Search failures return a friendly 500 page.
+- Panic recovery protects the server from unexpected handler crashes.
+- Graceful shutdown stops the HTTP server and search worker.
+
+## 7. Testing Strategy
+
+- API client tests use `httptest.Server`.
+- Catalog tests verify audit examples and search behavior.
+- Worker tests verify async search, cancellation, timeout, and closed-worker behavior.
+- Web tests verify home/detail rendering, search JSON, 404, 500, and health responses.
