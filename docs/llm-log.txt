@@ -35,3 +35,11 @@ Entries:
    - Action: Created local branch `full-implementation-local` at the full implementation commit, reset main to the documentation commit, and added only a runnable M0 Go skeleton.
    - Copied/Edited: Existing documentation was retained and README wording was edited to avoid claiming M2/M3 implementation on main.
    - Affected: local Git history, README.md, go.mod, main.go, main_test.go, docs/llm-log.txt.
+
+3. Task: Milestone 1 data and server foundation
+   - Date: 2026-06-04
+   - Agent/Model: Codex / GPT-5
+   - Asked: Implement issues #2, #3, and #4 from the data and server foundation milestone with small commits, tests, standard-library Go only, and frequent pushes.
+   - Action: Implemented the Groupie API client, normalized in-memory catalog, catalog search, HTTP routing, basic HTML/JSON/static responses, shared 404/500/method/panic handling, startup wiring, tests, and README route updates.
+   - Copied/Edited: Issue titles and acceptance criteria were provided by the user and adapted into implementation steps; all code and README/log edits were newly written.
+   - Affected: issues #2, #3, #4; main.go, main_test.go, README.md, docs/llm-log.txt, internal/groupie/*, internal/web/*.
