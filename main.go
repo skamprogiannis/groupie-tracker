@@ -1,60 +1,52 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"net/http"
 	"os"
 	"time"
+
+	"groupie-tracker/internal/groupie"
+	"groupie-tracker/internal/web"
 )
 
 func main() {
+	ctx := context.Background()
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
+	var catalog web.Catalog
+	loadedCatalog, err := loadCatalog(ctx)
+	if err != nil {
+		log.Printf("could not load Groupie Tracker API data: %v", err)
+	} else {
+		catalog = loadedCatalog
+	}
+
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           routes(),
+		Handler:           routes(catalog),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Printf("groupie-tracker skeleton listening on http://localhost:%s", port)
+	log.Printf("groupie-tracker listening on http://localhost:%s", port)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatal(err)
 	}
 }
 
-func routes() http.Handler {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", home)
-	mux.HandleFunc("/healthz", healthz)
-	return mux
+func loadCatalog(ctx context.Context) (*groupie.Catalog, error) {
+	client := groupie.NewClient("", groupie.DefaultClientTimeout)
+	data, err := client.FetchAll(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return groupie.NewCatalog(data)
 }
 
-func home(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/" {
-		http.NotFound(w, r)
-		return
-	}
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = fmt.Fprintln(w, "Groupie Tracker skeleton")
-}
-
-func healthz(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	_, _ = fmt.Fprintln(w, "ok")
+func routes(catalog web.Catalog) http.Handler {
+	return web.New(catalog).Handler()
 }
