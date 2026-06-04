@@ -1,0 +1,41 @@
+body {
+	font-family: Arial, sans-serif;
+	line-height: 1.5;
+	margin: 0;
+	color: #172026;
+	background: #f6f8fa;
+}
+
+main {
+	max-width: 960px;
+	margin: 0 auto;
+	padding: 24px;
+}
+
+a {
+	color: #0b5cad;
+}
+
+img {
+	display: block;
+	max-width: 220px;
+	height: auto;
+}
+
+.catalog {
+	display: grid;
+	gap: 8px;
+	list-style: none;
+	padding: 0;
+}
+
+.catalog li {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: baseline;
+	padding: 12px;
+	background: #ffffff;
+	border: 1px solid #d9e0e7;
+}
+
