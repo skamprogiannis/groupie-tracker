@@ -42,19 +42,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/search", s.search)
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.Handle("/static/", http.StripPrefix("/static/", s.staticHandler))
-	return mux
+	return s.recoverPanic(mux)
 }
 
 func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
-	if !allowOnlyGet(w, r) {
+	if !s.allowOnlyGet(w, r) {
 		return
 	}
 	if s.catalog == nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		s.internalServerError(w, r)
 		return
 	}
 
@@ -67,22 +67,22 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
-	if !allowOnlyGet(w, r) {
+	if !s.allowOnlyGet(w, r) {
 		return
 	}
 
 	id, ok := artistIDFromPath(r.URL.Path)
 	if !ok {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 	if s.catalog == nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		s.internalServerError(w, r)
 		return
 	}
 	artist, found := s.catalog.ArtistByID(id)
 	if !found {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
 
@@ -97,14 +97,14 @@ func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/api/search" {
-		http.NotFound(w, r)
+		s.notFound(w, r)
 		return
 	}
-	if !allowOnlyGet(w, r) {
+	if !s.allowOnlyGet(w, r) {
 		return
 	}
 	if s.catalog == nil {
-		http.Error(w, "internal server error", http.StatusInternalServerError)
+		s.internalServerError(w, r)
 		return
 	}
 
@@ -117,7 +117,7 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
-	if !allowOnlyGet(w, r) {
+	if !s.allowOnlyGet(w, r) {
 		return
 	}
 
@@ -146,14 +146,39 @@ func artistIDFromPath(path string) (int, bool) {
 	return id, true
 }
 
-func allowOnlyGet(w http.ResponseWriter, r *http.Request) bool {
+func (s *Server) recoverPanic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if recover() != nil {
+				s.internalServerError(w, r)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) allowOnlyGet(w http.ResponseWriter, r *http.Request) bool {
 	if r.Method == http.MethodGet {
 		return true
 	}
 
 	w.Header().Set("Allow", http.MethodGet)
-	http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	s.errorPage(w, http.StatusMethodNotAllowed, "Method not allowed", "Use GET for this route.")
 	return false
+}
+
+func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
+	s.errorPage(w, http.StatusNotFound, "Page not found", "The requested Groupie Tracker page does not exist.")
+}
+
+func (s *Server) internalServerError(w http.ResponseWriter, r *http.Request) {
+	s.errorPage(w, http.StatusInternalServerError, "Internal server error", "The server could not complete this request.")
+}
+
+func (s *Server) errorPage(w http.ResponseWriter, status int, title string, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(status)
+	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s</title><link rel="stylesheet" href="/static/site.css"></head><body><main><h1>%s</h1><p>%s</p><p><a href="/">Back to catalog</a></p></main></body></html>`, html.EscapeString(title), html.EscapeString(title), html.EscapeString(message))
 }
 
 func writeStringList(w http.ResponseWriter, title string, values []string) {
