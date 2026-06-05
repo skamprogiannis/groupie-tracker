@@ -2,8 +2,10 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -59,6 +61,30 @@ func TestArtistReturns404ForMissingID(t *testing.T) {
 
 	assertStatus(t, rec, http.StatusNotFound)
 	assertBodyContains(t, rec, "Page not found")
+}
+
+func TestArtistDetailShowsAuditExamples(t *testing.T) {
+	catalog := newAuditCatalog()
+
+	cases := []struct {
+		id   int
+		want []string
+	}{
+		{1, []string{"Queen", "Freddie Mercury", "John Daecon", "Roger Meddows-Taylor"}},
+		{2, []string{"Gorillaz", "26-03-2001"}},
+		{30, []string{"Travis Scott", "santiago-chile", "turku-finland", "05-07-2019"}},
+		{4, []string{"Foo Fighters", "Dave Grohl", "Rami Jaffee"}},
+	}
+
+	for _, tc := range cases {
+		t.Run(fmt.Sprintf("id=%d", tc.id), func(t *testing.T) {
+			rec := serveTestRequest(http.MethodGet, "/artist/"+strconv.Itoa(tc.id), catalog)
+			assertStatus(t, rec, http.StatusOK)
+			for _, want := range tc.want {
+				assertBodyContains(t, rec, want)
+			}
+		})
+	}
 }
 
 func TestUnknownRouteReturns404(t *testing.T) {
@@ -202,5 +228,87 @@ func (c *fakeCatalog) Search(query string) []groupie.SearchResult {
 			{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"},
 		}
 	}
+	return nil
+}
+
+type auditCatalog struct{}
+
+func newAuditCatalog() *auditCatalog {
+	return &auditCatalog{}
+}
+
+func (c *auditCatalog) Artists() []groupie.ArtistSummary {
+	return []groupie.ArtistSummary{
+		{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"},
+		{ID: 2, Name: "Gorillaz", Image: "gorillaz.jpeg", CreationDate: 1998, FirstAlbum: "26-03-2001"},
+		{ID: 4, Name: "Foo Fighters", Image: "foofighters.jpeg", CreationDate: 1994, FirstAlbum: "04-07-1995"},
+		{ID: 30, Name: "Travis Scott", Image: "travis.jpeg", CreationDate: 2008, FirstAlbum: "04-09-2015"},
+	}
+}
+
+func (c *auditCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
+	switch id {
+	case 1:
+		return groupie.ArtistDetail{
+			ID:           1,
+			Name:         "Queen",
+			Image:        "queen.jpeg",
+			Members:      []string{"Freddie Mercury", "Brian May", "John Daecon", "Roger Meddows-Taylor", "Mike Grose", "Barry Mitchell", "Doug Fogie"},
+			CreationDate: 1970,
+			FirstAlbum:   "14-12-1973",
+			Locations:    []string{"london-uk"},
+			Dates:        []string{"14-12-1973"},
+			DatesLocations: map[string][]string{
+				"london-uk": {"14-12-1973"},
+			},
+		}, true
+	case 2:
+		return groupie.ArtistDetail{
+			ID:           2,
+			Name:         "Gorillaz",
+			Image:        "gorillaz.jpeg",
+			Members:      []string{"Damon Albarn", "Jamie Hewlett"},
+			CreationDate: 1998,
+			FirstAlbum:   "26-03-2001",
+			Locations:    []string{"paris-france"},
+			Dates:        []string{"26-03-2001"},
+			DatesLocations: map[string][]string{
+				"paris-france": {"26-03-2001"},
+			},
+		}, true
+	case 4:
+		return groupie.ArtistDetail{
+			ID:           4,
+			Name:         "Foo Fighters",
+			Image:        "foofighters.jpeg",
+			Members:      []string{"Dave Grohl", "Nate Mendel", "Taylor Hawkins", "Chris Shiflett", "Pat Smear", "Rami Jaffee"},
+			CreationDate: 1994,
+			FirstAlbum:   "04-07-1995",
+			Locations:    []string{"seattle-usa"},
+			Dates:        []string{"04-07-1995"},
+			DatesLocations: map[string][]string{
+				"seattle-usa": {"04-07-1995"},
+			},
+		}, true
+	case 30:
+		return groupie.ArtistDetail{
+			ID:           30,
+			Name:         "Travis Scott",
+			Image:        "travis.jpeg",
+			Members:      []string{"Travis Scott"},
+			CreationDate: 2008,
+			FirstAlbum:   "04-09-2015",
+			Locations:    []string{"santiago-chile", "sao_paulo-brazil", "los_angeles-usa", "houston-usa", "atlanta-usa", "new_orleans-usa", "philadelphia-usa", "london-uk", "frauenfeld-switzerland", "turku-finland"},
+			Dates:        []string{"05-07-2019"},
+			DatesLocations: map[string][]string{
+				"turku-finland": {"05-07-2019"},
+			},
+		}, true
+	default:
+		return groupie.ArtistDetail{}, false
+	}
+}
+
+func (c *auditCatalog) Search(query string) []groupie.SearchResult {
 	return nil
 }
