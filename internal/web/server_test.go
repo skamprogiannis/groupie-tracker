@@ -141,6 +141,36 @@ func TestStaticCSSIncludesAccessibilityStyles(t *testing.T) {
 	assertBodyContains(t, rec, "@media (max-width: 560px)")
 }
 
+func TestHomeIncludesSearchScript(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/", newFakeCatalog())
+
+	assertStatus(t, rec, http.StatusOK)
+	assertBodyContains(t, rec, "<script src=\"/static/site.js\"")
+}
+
+func TestSearchEmptyAndNoMatch(t *testing.T) {
+	// no-match
+	rec := serveTestRequest(http.MethodGet, "/api/search?q=__no_such_artist__", newFakeCatalog())
+	assertStatus(t, rec, http.StatusOK)
+	var resp searchResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode search response: %v", err)
+	}
+	if len(resp.Results) != 0 {
+		t.Fatalf("expected no results, got %#v", resp.Results)
+	}
+
+	// empty query returns results
+	rec = serveTestRequest(http.MethodGet, "/api/search?q=", newFakeCatalog())
+	assertStatus(t, rec, http.StatusOK)
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode search response: %v", err)
+	}
+	if len(resp.Results) == 0 {
+		t.Fatalf("expected some results for empty query, got %#v", resp.Results)
+	}
+}
+
 func TestMethodNotAllowed(t *testing.T) {
 	rec := serveTestRequest(http.MethodPost, "/healthz", newFakeCatalog())
 
@@ -234,10 +264,18 @@ func (c *fakeCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
 }
 
 func (c *fakeCatalog) Search(query string) []groupie.SearchResult {
-	if strings.EqualFold(strings.TrimSpace(query), "queen") {
-		return []groupie.SearchResult{
-			{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"},
+	q := strings.TrimSpace(query)
+	if q == "" {
+		// return all artists as search results
+		artists := c.Artists()
+		results := make([]groupie.SearchResult, 0, len(artists))
+		for _, a := range artists {
+			results = append(results, groupie.SearchResult{ID: a.ID, Name: a.Name, Image: a.Image, CreationDate: a.CreationDate, FirstAlbum: a.FirstAlbum})
 		}
+		return results
+	}
+	if strings.EqualFold(q, "queen") {
+		return []groupie.SearchResult{{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"}}
 	}
 	return nil
 }

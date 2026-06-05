@@ -60,7 +60,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	artists := s.catalog.Artists()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"></head><body><main><h1>Groupie Tracker</h1><form action="/api/search" method="get"><label for="q">Search artists</label><input id="q" name="q" type="search"><button type="submit">Search</button></form><section><h2>Artists</h2>`)
+	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script></head><body><main><h1>Groupie Tracker</h1><form id="searchForm" action="/api/search" method="get"><label for="q">Search artists</label><input id="q" name="q" type="search"><button type="submit">Search</button></form><section><h2>Artists</h2>`)
 	if len(artists) == 0 {
 		_, _ = fmt.Fprint(w, `<p class="empty-state">No artists available at this time.</p>`)
 	} else {
