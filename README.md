@@ -2,7 +2,7 @@
 
 Groupie Tracker is a Zone01 Go web project that will fetch the public Groupie Tracker API and display artist, member, album, location, date, and relation data in a user-friendly website.
 
-Current `main` contains the M0 project skeleton only. The remaining milestones are tracked in Gitea issues for the team to implement.
+The current implementation includes the data and server foundation: API fetching, normalized in-memory catalog data, basic route rendering, search JSON, static assets, health checks, and shared error handling.
 
 ## Run
 
@@ -27,8 +27,11 @@ The project uses only Go standard library packages.
 
 ## Routes
 
-- `/` - skeleton home response
+- `/` - catalog home page
+- `/artist/{id}` - artist detail page
+- `/api/search?q=...` - JSON search endpoint
 - `/healthz` - health check
+- `/static/*` - embedded static assets
 
 ## Documentation
 
