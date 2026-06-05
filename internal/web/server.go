@@ -94,7 +94,7 @@ func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s - Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"></head><body><main><a href="/">Back to catalog</a><article><h1>%s</h1><img src="%s" alt="%s"><dl><dt>Creation date</dt><dd>%d</dd><dt>First album</dt><dd>%s</dd></dl>`, html.EscapeString(artist.Name), html.EscapeString(artist.Name), html.EscapeString(artist.Image), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
+	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s - Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"></head><body><main><a class="back-button" href="/">&larr; Back to catalog</a><article><h1>%s</h1><img src="%s" alt="%s"><dl><dt>Creation date</dt><dd>%d</dd><dt>First album</dt><dd>%s</dd></dl>`, html.EscapeString(artist.Name), html.EscapeString(artist.Name), html.EscapeString(artist.Image), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
 	writeStringList(w, "Members", artist.Members)
 	writeStringList(w, "Locations", artist.Locations)
 	writeStringList(w, "Dates", artist.Dates)
