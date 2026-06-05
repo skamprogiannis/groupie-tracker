@@ -3,6 +3,7 @@ package groupie
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 func NewCatalog(data APIData) (*Catalog, error) {
@@ -59,11 +60,12 @@ func (c *Catalog) Artists() []ArtistSummary {
 	summaries := make([]ArtistSummary, 0, len(c.artists))
 	for _, artist := range c.artists {
 		summaries = append(summaries, ArtistSummary{
-			ID:           artist.ID,
-			Name:         artist.Name,
-			Image:        artist.Image,
-			CreationDate: artist.CreationDate,
-			FirstAlbum:   artist.FirstAlbum,
+			ID:            artist.ID,
+			Name:          artist.Name,
+			Image:         artist.Image,
+			CreationDate:  artist.CreationDate,
+			FirstAlbum:    artist.FirstAlbum,
+			MemberSummary: strings.Join(artist.Members, ", "),
 		})
 	}
 	return summaries

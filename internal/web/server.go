@@ -60,11 +60,17 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	artists := s.catalog.Artists()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"></head><body><main><h1>Groupie Tracker</h1><form action="/api/search" method="get"><label for="q">Search artists</label><input id="q" name="q" type="search"><button type="submit">Search</button></form><section><h2>Artists</h2><ul class="catalog">`)
-	for _, artist := range artists {
-		_, _ = fmt.Fprintf(w, `<li><a href="/artist/%d">%s</a><span>%d</span><span>%s</span></li>`, artist.ID, html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
+	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"></head><body><main><h1>Groupie Tracker</h1><form action="/api/search" method="get"><label for="q">Search artists</label><input id="q" name="q" type="search"><button type="submit">Search</button></form><section><h2>Artists</h2>`)
+	if len(artists) == 0 {
+		_, _ = fmt.Fprint(w, `<p class="empty-state">No artists available at this time.</p>`)
+	} else {
+		_, _ = fmt.Fprint(w, `<ul class="catalog">`)
+		for _, artist := range artists {
+			_, _ = fmt.Fprintf(w, `<li class="catalog-item"><a class="catalog-link" href="/artist/%d"><img src="%s" alt="%s"><div class="catalog-card"><h3>%s</h3><p class="catalog-card__info">Created %d · First album: %s</p><p class="catalog-card__members">Members: %s</p></div></a></li>`, artist.ID, html.EscapeString(artist.Image), html.EscapeString(artist.Name), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum), html.EscapeString(artist.MemberSummary))
+		}
+		_, _ = fmt.Fprint(w, `</ul>`)
 	}
-	_, _ = fmt.Fprint(w, `</ul></section></main></body></html>`)
+	_, _ = fmt.Fprint(w, `</section></main></body></html>`)
 }
 
 func (s *Server) artist(w http.ResponseWriter, r *http.Request) {

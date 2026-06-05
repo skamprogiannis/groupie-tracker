@@ -19,6 +19,24 @@ func TestHomeRendersCatalog(t *testing.T) {
 	assertBodyContains(t, rec, "/artist/1")
 }
 
+func TestHomeRendersArtistCards(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/", newFakeCatalog())
+
+	assertStatus(t, rec, http.StatusOK)
+	assertBodyContains(t, rec, "<img src=\"queen.jpeg\"")
+	assertBodyContains(t, rec, "Members: Freddie Mercury, Brian May")
+	assertBodyContains(t, rec, "Created 1970")
+}
+
+func TestHomeHandlesEmptyCatalog(t *testing.T) {
+	emptyCatalog := &fakeCatalog{emptyArtists: true}
+
+	rec := serveTestRequest(http.MethodGet, "/", emptyCatalog)
+
+	assertStatus(t, rec, http.StatusOK)
+	assertBodyContains(t, rec, "No artists available")
+}
+
 func TestArtistRendersDetail(t *testing.T) {
 	rec := serveTestRequest(http.MethodGet, "/artist/1", newFakeCatalog())
 
@@ -138,6 +156,7 @@ func assertBodyContains(t *testing.T, rec *httptest.ResponseRecorder, want strin
 
 type fakeCatalog struct {
 	panicOnArtists bool
+	emptyArtists   bool
 }
 
 func newFakeCatalog() *fakeCatalog {
@@ -148,9 +167,12 @@ func (c *fakeCatalog) Artists() []groupie.ArtistSummary {
 	if c.panicOnArtists {
 		panic("artist list failed")
 	}
+	if c.emptyArtists {
+		return nil
+	}
 
 	return []groupie.ArtistSummary{
-		{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"},
+		{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973", MemberSummary: "Freddie Mercury, Brian May"},
 	}
 }
 

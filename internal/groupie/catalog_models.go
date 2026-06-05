@@ -1,11 +1,12 @@
 package groupie
 
 type ArtistSummary struct {
-	ID           int
-	Name         string
-	Image        string
-	CreationDate int
-	FirstAlbum   string
+	ID             int
+	Name           string
+	Image          string
+	CreationDate   int
+	FirstAlbum     string
+	MemberSummary  string
 }
 
 type ArtistDetail struct {
