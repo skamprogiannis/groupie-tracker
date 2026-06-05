@@ -52,6 +52,27 @@ img {
 	box-shadow: 0 8px 24px rgba(17, 24, 39, 0.08);
 }
 
+.catalog-link:focus-visible,
+.catalog-link:hover {
+	outline: 3px solid #0b5cad;
+	outline-offset: 4px;
+}
+
+button,
+input,
+select,
+textarea {
+	font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+	outline: 3px solid #0b5cad;
+	outline-offset: 4px;
+}
+
 .catalog-link img {
 	width: 120px;
 	height: 120px;
@@ -76,6 +97,42 @@ img {
 	color: #334155;
 }
 
+article,
+section {
+	margin-bottom: 24px;
+}
+
+dl {
+	background: #ffffff;
+	border: 1px solid #d9e0e7;
+	border-radius: 12px;
+	padding: 16px;
+	margin: 16px 0 0;
+}
+
+dt {
+	font-weight: 700;
+	color: #0f172a;
+	margin-top: 12px;
+}
+
+dd {
+	margin: 0 0 12px;
+	color: #334155;
+}
+
+@media (max-width: 560px) {
+	.catalog-link {
+		grid-template-columns: 1fr;
+		text-align: left;
+	}
+
+	.catalog-link img {
+		width: 100%;
+		height: auto;
+	}
+}
+
 .empty-state {
 	padding: 20px;
 	background: #ffffff;
@@ -84,4 +141,3 @@ img {
 	color: #334155;
 	text-align: center;
 }
-

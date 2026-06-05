@@ -130,6 +130,17 @@ func TestStaticAssetRoute(t *testing.T) {
 	assertBodyContains(t, rec, "body")
 }
 
+func TestStaticCSSIncludesAccessibilityStyles(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/static/site.css", newFakeCatalog())
+
+	assertStatus(t, rec, http.StatusOK)
+	if contentType := rec.Header().Get("Content-Type"); !strings.Contains(contentType, "text/css") {
+		t.Fatalf("Content-Type = %q, want text/css", contentType)
+	}
+	assertBodyContains(t, rec, ".catalog-link:focus-visible")
+	assertBodyContains(t, rec, "@media (max-width: 560px)")
+}
+
 func TestMethodNotAllowed(t *testing.T) {
 	rec := serveTestRequest(http.MethodPost, "/healthz", newFakeCatalog())
 
