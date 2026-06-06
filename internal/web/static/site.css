@@ -252,6 +252,7 @@ form#searchForm button:active {
 .filter select,
 .filter input {
 	width: 100%;
+	min-width: 0;
 	background: var(--surface-strong);
 	color: var(--text);
 	border: 1px solid var(--border);
