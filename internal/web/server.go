@@ -265,6 +265,9 @@ func writeFoot(w http.ResponseWriter) {
 // writeControls renders the filter and sort toolbar, populated from the dataset
 // facets so the year and country options always reflect the real data.
 func writeControls(w http.ResponseWriter, facets groupie.FilterOptions) {
+	// The toggle is only shown on small screens (CSS); it collapses the filter
+	// bar so the catalog is visible without scrolling past every control.
+	_, _ = fmt.Fprint(w, `<button type="button" id="filterToggle" class="filter-toggle" aria-expanded="false" aria-controls="filterBar">Filters &amp; sort</button>`)
 	_, _ = fmt.Fprint(w, `<form id="filterBar" class="filters" aria-label="Filter and sort artists"><div class="filter"><label for="f-sort">Sort</label><select id="f-sort" name="sort"><option value="name">Name A–Z</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="members">Most members</option></select></div>`)
 
 	_, _ = fmt.Fprintf(w, `<div class="filter"><label for="f-min-year">From year</label><input id="f-min-year" name="minYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div><div class="filter"><label for="f-max-year">To year</label><input id="f-max-year" name="maxYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div>`,

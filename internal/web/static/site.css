@@ -286,6 +286,29 @@ form#searchForm button:active {
 	font-size: 0.9rem;
 }
 
+/* Shown only on small screens (see media query) to collapse the filter bar. */
+.filter-toggle {
+	display: none;
+	width: 100%;
+	padding: 13px 16px;
+	margin-bottom: 14px;
+	background: var(--surface);
+	border: 1px solid var(--border);
+	border-radius: var(--radius);
+	color: var(--text);
+	font-weight: 600;
+	cursor: pointer;
+}
+
+.filter-toggle::after {
+	content: " ▾";
+	color: var(--accent);
+}
+
+.filter-toggle[aria-expanded="true"]::after {
+	content: " ▴";
+}
+
 
 /* ========================================
    CATALOG GRID + CARDS
@@ -606,8 +629,24 @@ select:focus-visible {
 		text-align: center;
 	}
 
+	/* Collapse the filter bar behind the toggle so the catalog is visible
+	   immediately on phones. */
+	.filter-toggle {
+		display: block;
+	}
+
+	.filters {
+		display: none;
+	}
+
+	.filters.is-open {
+		display: flex;
+	}
+
 	.filter-clear {
 		margin-left: 0;
+		width: 100%;
+		text-align: center;
 	}
 }
 
@@ -627,5 +666,18 @@ select:focus-visible {
 	.filter input[type="number"] {
 		width: 100%;
 		min-width: 0;
+	}
+
+	/* Stack each concert's place over its dates so long names and dates never
+	   clip off the right edge on narrow screens. */
+	.concert {
+		flex-direction: column;
+		align-items: flex-start;
+		gap: 3px;
+	}
+
+	.concert__place,
+	.concert__dates {
+		overflow-wrap: anywhere;
 	}
 }

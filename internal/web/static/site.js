@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const input = document.getElementById('q');
     const dropdown = document.getElementById('dropdown');
     const filterBar = document.getElementById('filterBar');
+    const filterToggle = document.getElementById('filterToggle');
     const catalog = document.getElementById('catalog');
     const resultCount = document.getElementById('result-count');
     const emptyState = document.getElementById('empty-state');
@@ -197,6 +198,13 @@ document.addEventListener('DOMContentLoaded', function () {
             ev.preventDefault();
             closeDropdown();
             runSearch(false);
+        });
+    }
+
+    if (filterToggle && filterBar) {
+        filterToggle.addEventListener('click', function () {
+            const open = filterBar.classList.toggle('is-open');
+            filterToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
     }
 
