@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -208,7 +209,8 @@ func TestPanicRecoveryReturns500(t *testing.T) {
 func serveTestRequest(method string, path string, catalog Catalog) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, nil)
 	rec := httptest.NewRecorder()
-	New(catalog).Handler().ServeHTTP(rec, req)
+	searcher, _ := catalog.(Searcher)
+	New(catalog, searcher).Handler().ServeHTTP(rec, req)
 	return rec
 }
 
@@ -270,7 +272,7 @@ func (c *fakeCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
 	}, true
 }
 
-func (c *fakeCatalog) Search(query string) []groupie.SearchResult {
+func (c *fakeCatalog) Search(_ context.Context, query string) ([]groupie.SearchResult, error) {
 	q := strings.TrimSpace(query)
 	if q == "" {
 		// return all artists as search results
@@ -279,12 +281,12 @@ func (c *fakeCatalog) Search(query string) []groupie.SearchResult {
 		for _, a := range artists {
 			results = append(results, groupie.SearchResult{ID: a.ID, Name: a.Name, Image: a.Image, CreationDate: a.CreationDate, FirstAlbum: a.FirstAlbum})
 		}
-		return results
+		return results, nil
 	}
 	if strings.EqualFold(q, "queen") {
-		return []groupie.SearchResult{{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"}}
+		return []groupie.SearchResult{{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"}}, nil
 	}
-	return nil
+	return nil, nil
 }
 
 type auditCatalog struct{}
@@ -365,6 +367,6 @@ func (c *auditCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
 	}
 }
 
-func (c *auditCatalog) Search(query string) []groupie.SearchResult {
-	return nil
+func (c *auditCatalog) Search(_ context.Context, _ string) ([]groupie.SearchResult, error) {
+	return nil, nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,7 +14,7 @@ func TestRoutesHome(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	rec := httptest.NewRecorder()
 
-	routes(mainTestCatalog{}).ServeHTTP(rec, req)
+	routes(mainTestCatalog{}, mainTestCatalog{}).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -27,7 +28,7 @@ func TestHealthz(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	rec := httptest.NewRecorder()
 
-	routes(nil).ServeHTTP(rec, req)
+	routes(nil, nil).ServeHTTP(rec, req)
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
@@ -49,6 +50,6 @@ func (mainTestCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
 	return groupie.ArtistDetail{}, false
 }
 
-func (mainTestCatalog) Search(query string) []groupie.SearchResult {
-	return nil
+func (mainTestCatalog) Search(_ context.Context, _ string) ([]groupie.SearchResult, error) {
+	return nil, nil
 }

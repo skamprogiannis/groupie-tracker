@@ -5,36 +5,70 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"groupie-tracker/internal/groupie"
 	"groupie-tracker/internal/web"
 )
 
+// shutdownTimeout bounds how long graceful shutdown waits for in-flight
+// requests before forcing the server to stop.
+const shutdownTimeout = 10 * time.Second
+
 func main() {
-	ctx := context.Background()
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
 
-	var catalog web.Catalog
-	loadedCatalog, err := loadCatalog(ctx)
-	if err != nil {
+	// Stop on Ctrl+C or SIGTERM so the server and worker shut down cleanly.
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	var (
+		catalog  web.Catalog
+		searcher web.Searcher
+		worker   *groupie.SearchWorker
+	)
+	if loaded, err := loadCatalog(ctx); err != nil {
 		log.Printf("could not load Groupie Tracker API data: %v", err)
 	} else {
-		catalog = loadedCatalog
+		catalog = loaded
+		worker = groupie.NewSearchWorker(loaded)
+		searcher = worker
 	}
 
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           routes(catalog),
+		Handler:           routes(catalog, searcher),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Printf("groupie-tracker listening on http://localhost:%s", port)
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+	// Run the listener in the background so main can wait on the signal.
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("groupie-tracker listening on http://localhost:%s", port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			serverErr <- err
+		}
+	}()
+
+	select {
+	case err := <-serverErr:
 		log.Fatal(err)
+	case <-ctx.Done():
+		log.Print("shutting down...")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		log.Printf("graceful shutdown failed: %v", err)
+	}
+	if worker != nil {
+		worker.Close()
 	}
 }
 
@@ -47,6 +81,6 @@ func loadCatalog(ctx context.Context) (*groupie.Catalog, error) {
 	return groupie.NewCatalog(data)
 }
 
-func routes(catalog web.Catalog) http.Handler {
-	return web.New(catalog).Handler()
+func routes(catalog web.Catalog, searcher web.Searcher) http.Handler {
+	return web.New(catalog, searcher).Handler()
 }

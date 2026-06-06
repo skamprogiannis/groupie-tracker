@@ -98,37 +98,6 @@ func formatLocationDetail(raw string) string {
 	return strings.Join(words, " ")
 }
 
-func artistMatches(artist ArtistDetail, query string) bool {
-	if containsFolded(artist.Name, query) ||
-		containsFolded(artist.FirstAlbum, query) ||
-		containsFolded(strconv.Itoa(artist.CreationDate), query) {
-		return true
-	}
-
-	return containsAnyFolded(artist.Members, query) ||
-		containsAnyFolded(artist.Locations, query) ||
-		containsAnyFolded(artist.Dates, query) ||
-		relationMatches(artist.DatesLocations, query)
-}
-
-func relationMatches(datesLocations map[string][]string, query string) bool {
-	for location, dates := range datesLocations {
-		if containsFolded(location, query) || containsAnyFolded(dates, query) {
-			return true
-		}
-	}
-	return false
-}
-
-func containsAnyFolded(values []string, query string) bool {
-	for _, value := range values {
-		if containsFolded(value, query) {
-			return true
-		}
-	}
-	return false
-}
-
 func containsFolded(value string, query string) bool {
 	return strings.Contains(strings.ToLower(value), query)
 }

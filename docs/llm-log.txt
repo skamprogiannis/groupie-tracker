@@ -51,3 +51,12 @@ Entries:
    - Action: Added MatchedDetail field to SearchResult struct in catalog_models.go; created new artistMatchesWithDetail() function in search.go that tracks what was matched (member, location, date, or album); implemented formatLocationDetail() helper to format location strings; frontend already had display logic prepared to show "Artist Name - Matched Detail" format.
    - Copied/Edited: All implementation was newly written based on user requirements; user requested the two-part change (backend field + frontend display); frontend code was pre-existing and only needed the backend to support it.
    - Affected: internal/groupie/search.go, internal/groupie/catalog_models.go; verified with go test ./... and manual testing of search API; no changes needed to frontend or other files.
+
+5. Task: Milestone 3 - async event system, QA, deployment prep, docs
+   - Date: 2026-06-06
+   - Agent/Model: Claude Code (claude-opus-4-8)
+   - Asked: Implement the m3 milestone (bonus async event system behind search, final audit QA, deployment prep, and audit-readiness docs), plus any safe in-scope improvements.
+   - Action: Added an asynchronous SearchWorker (goroutine + channels) with per-request context timeout/cancellation and safe shutdown; split the web Catalog interface into Catalog + Searcher and routed /api/search through the worker with a bounded context; added signal-based graceful shutdown in main that stops the server and closes the worker; removed dead search helpers (artistMatches/relationMatches/containsAnyFolded); added worker unit tests (success, empty query, timeout, cancellation, repeatable Close, nil receiver, concurrency) and updated web/main tests for the new interfaces; expanded README with the async event, deployment, and audit notes.
+   - Copied/Edited: All code, tests, and doc text were newly written for this milestone; the existing architecture.md already described the worker and graceful shutdown, and the implementation was made to match it.
+   - Verification: go vet ./... clean; gofmt -l . clean; go test -race ./... passes; manual smoke test of /, /artist/{id}, /api/search, 404, 405, and SIGTERM graceful shutdown against the live API.
+   - Affected: m3 issues; internal/groupie/worker.go (new), internal/groupie/worker_test.go (new), internal/groupie/search.go, internal/web/server.go, internal/web/server_test.go, main.go, main_test.go, README.md, docs/llm-log.txt.

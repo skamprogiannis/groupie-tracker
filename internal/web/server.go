@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -10,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"groupie-tracker/internal/groupie"
 )
@@ -17,20 +19,33 @@ import (
 //go:embed static
 var staticFiles embed.FS
 
+// searchTimeout bounds how long a single /api/search request may wait on the
+// async search worker before the handler gives up and returns an error.
+const searchTimeout = 5 * time.Second
+
+// Catalog supplies the read-only artist data the HTML pages render.
 type Catalog interface {
 	Artists() []groupie.ArtistSummary
 	ArtistByID(id int) (groupie.ArtistDetail, bool)
-	Search(query string) []groupie.SearchResult
+}
+
+// Searcher handles the asynchronous client-server search event. The concrete
+// implementation (groupie.SearchWorker) runs on its own goroutine and honors
+// the request context for timeout and cancellation.
+type Searcher interface {
+	Search(ctx context.Context, query string) ([]groupie.SearchResult, error)
 }
 
 type Server struct {
 	catalog       Catalog
+	searcher      Searcher
 	staticHandler http.Handler
 }
 
-func New(catalog Catalog) *Server {
+func New(catalog Catalog, searcher Searcher) *Server {
 	return &Server{
 		catalog:       catalog,
+		searcher:      searcher,
 		staticHandler: newStaticHandler(),
 	}
 }
@@ -60,13 +75,13 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	artists := s.catalog.Artists()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg"></dotlottie-player><main><h1>Groupie Tracker</h1><form id="searchForm" action="/api/search" method="get"><div id="search-container"><input id="q" name="q" type="search" placeholder="Search artists..."><div id="dropdown" class="autocomplete-list"></div></div><button type="submit">Search</button></form><section><h2>Artists</h2>`)
+	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg" aria-hidden="true"></dotlottie-player><main><h1>Groupie Tracker</h1><form id="searchForm" action="/api/search" method="get" role="search"><div id="search-container"><input id="q" name="q" type="search" placeholder="Search artists..." aria-label="Search artists" role="combobox" aria-expanded="false" aria-controls="dropdown" aria-autocomplete="list" autocomplete="off"><div id="dropdown" class="autocomplete-list" role="listbox" aria-label="Artist search results"></div></div><button type="submit">Search</button></form><section><h2>Artists</h2>`)
 	if len(artists) == 0 {
 		_, _ = fmt.Fprint(w, `<p class="empty-state">No artists available at this time.</p>`)
 	} else {
 		_, _ = fmt.Fprint(w, `<ul class="catalog">`)
 		for _, artist := range artists {
-			_, _ = fmt.Fprintf(w, `<li class="catalog-item"><a class="catalog-link" href="/artist/%d"><img src="%s" alt="%s"><div class="catalog-card"><h3>%s</h3><p class="catalog-card__info">Created %d · First album: %s</p><p class="catalog-card__members">Members: %s</p></div></a></li>`, artist.ID, html.EscapeString(artist.Image), html.EscapeString(artist.Name), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum), html.EscapeString(artist.MemberSummary))
+			_, _ = fmt.Fprintf(w, `<li class="catalog-item"><a class="catalog-link" href="/artist/%d"><img src="%s" alt="%s" loading="lazy" decoding="async"><div class="catalog-card"><h3>%s</h3><p class="catalog-card__info">Created %d · First album: %s</p><p class="catalog-card__members">Members: %s</p></div></a></li>`, artist.ID, html.EscapeString(artist.Image), html.EscapeString(artist.Name), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum), html.EscapeString(artist.MemberSummary))
 		}
 		_, _ = fmt.Fprint(w, `</ul>`)
 	}
@@ -94,7 +109,7 @@ func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s - Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg"></dotlottie-player><main><a class="back-button" href="/">&larr; Back to catalog</a><article><h1>%s</h1><img src="%s" alt="%s"><dl><dt>Creation date</dt><dd>%d</dd><dt>First album</dt><dd>%s</dd></dl>`, html.EscapeString(artist.Name), html.EscapeString(artist.Name), html.EscapeString(artist.Image), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
+	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s - Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg" aria-hidden="true"></dotlottie-player><main><a class="back-button" href="/">&larr; Back to catalog</a><article><h1>%s</h1><img src="%s" alt="%s"><dl><dt>Creation date</dt><dd>%d</dd><dt>First album</dt><dd>%s</dd></dl>`, html.EscapeString(artist.Name), html.EscapeString(artist.Name), html.EscapeString(artist.Image), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
 	writeStringList(w, "Members", artist.Members)
 	writeStringList(w, "Locations", artist.Locations)
 	writeStringList(w, "Dates", artist.Dates)
@@ -110,15 +125,29 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 	if !s.allowOnlyGet(w, r) {
 		return
 	}
-	if s.catalog == nil {
+	if s.searcher == nil {
+		s.internalServerError(w, r)
+		return
+	}
+
+	query := r.URL.Query().Get("q")
+
+	// Hand the query to the async worker with a bounded context. The worker
+	// replies on a channel; if it does not answer before the deadline (or the
+	// client disconnects), the request is cancelled instead of hanging.
+	ctx, cancel := context.WithTimeout(r.Context(), searchTimeout)
+	defer cancel()
+
+	results, err := s.searcher.Search(ctx, query)
+	if err != nil {
 		s.internalServerError(w, r)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	response := searchResponse{
-		Query:   strings.TrimSpace(r.URL.Query().Get("q")),
-		Results: s.catalog.Search(r.URL.Query().Get("q")),
+		Query:   strings.TrimSpace(query),
+		Results: results,
 	}
 	_ = json.NewEncoder(w).Encode(response)
 }

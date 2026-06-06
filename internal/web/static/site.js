@@ -58,10 +58,48 @@ document.addEventListener('DOMContentLoaded', function () {
 
     if (input && dropdown) {
         let debounceTimer = null;
+        let activeIndex = -1;
+
+        function options() {
+            return Array.from(dropdown.querySelectorAll('.autocomplete-item'));
+        }
+
+        function isOpen() {
+            return dropdown.style.display === 'block';
+        }
+
+        function openDropdown() {
+            dropdown.style.display = 'block';
+            input.setAttribute('aria-expanded', 'true');
+        }
+
+        function closeDropdown() {
+            dropdown.style.display = 'none';
+            input.setAttribute('aria-expanded', 'false');
+            input.removeAttribute('aria-activedescendant');
+            activeIndex = -1;
+        }
+
+        function setActive(index) {
+            const opts = options();
+            opts.forEach(function (opt, i) {
+                const active = i === index;
+                opt.classList.toggle('is-active', active);
+                opt.setAttribute('aria-selected', active ? 'true' : 'false');
+            });
+            activeIndex = index;
+            if (index >= 0 && opts[index]) {
+                input.setAttribute('aria-activedescendant', opts[index].id);
+                opts[index].scrollIntoView({ block: 'nearest' });
+            } else {
+                input.removeAttribute('aria-activedescendant');
+            }
+        }
+
         input.addEventListener('input', function () {
             const q = input.value || '';
             if (q.length < 1) {
-                dropdown.style.display = 'none';
+                closeDropdown();
                 return;
             }
 
@@ -73,34 +111,65 @@ document.addEventListener('DOMContentLoaded', function () {
                     const results = data.results || [];
 
                     dropdown.innerHTML = '';
+                    activeIndex = -1;
                     if (results.length > 0) {
-                        results.forEach(artist => {
+                        results.forEach((artist, i) => {
                             const item = document.createElement('div');
                             item.className = 'autocomplete-item';
+                            item.id = 'ac-option-' + i;
+                            item.setAttribute('role', 'option');
+                            item.setAttribute('aria-selected', 'false');
 
-                            // Updated display logic to include MatchedDetail
                             const name = (artist.name || artist.Name);
-                            const match = (artist.matchedDetail || "");
+                            const match = (artist.matchedDetail || '');
                             item.textContent = match ? `${name} - ${match}` : name;
 
-                            item.onclick = () => {
-                                window.location.href = '/artist/' + (artist.ID || artist.id);
-                            };
+                            const target = '/artist/' + (artist.id || artist.ID);
+                            item.addEventListener('mouseenter', () => setActive(i));
+                            item.addEventListener('click', () => {
+                                window.location.href = target;
+                            });
                             dropdown.appendChild(item);
                         });
-                        dropdown.style.display = 'block';
+                        openDropdown();
                     } else {
-                        dropdown.style.display = 'none';
+                        closeDropdown();
                     }
                 } catch (err) {
-                    dropdown.style.display = 'none';
+                    closeDropdown();
                 }
             }, 150);
         });
 
+        input.addEventListener('keydown', function (ev) {
+            const opts = options();
+            if (!isOpen() || opts.length === 0) {
+                return;
+            }
+            switch (ev.key) {
+                case 'ArrowDown':
+                    ev.preventDefault();
+                    setActive((activeIndex + 1) % opts.length);
+                    break;
+                case 'ArrowUp':
+                    ev.preventDefault();
+                    setActive((activeIndex - 1 + opts.length) % opts.length);
+                    break;
+                case 'Enter':
+                    if (activeIndex >= 0 && opts[activeIndex]) {
+                        ev.preventDefault();
+                        opts[activeIndex].click();
+                    }
+                    break;
+                case 'Escape':
+                    closeDropdown();
+                    break;
+            }
+        });
+
         document.addEventListener('click', function (ev) {
             if (!form.contains(ev.target)) {
-                dropdown.style.display = 'none';
+                closeDropdown();
             }
         });
     }
