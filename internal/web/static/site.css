@@ -1,4 +1,15 @@
 /* ========================================
+   RESET
+   ======================================== */
+
+*,
+*::before,
+*::after {
+	box-sizing: border-box;
+}
+
+
+/* ========================================
    DESIGN TOKENS
    ======================================== */
 
@@ -146,6 +157,7 @@ form#searchForm button {
 	font-weight: 600;
 	cursor: pointer;
 	white-space: nowrap;
+	flex: 0 0 auto;
 	transition: transform 180ms var(--ease), box-shadow 180ms ease, filter 180ms ease;
 	box-shadow: 0 6px 18px rgba(99, 102, 241, 0.34);
 }
@@ -211,10 +223,10 @@ form#searchForm button:active {
    ======================================== */
 
 .filters {
-	display: flex;
-	flex-wrap: wrap;
-	align-items: flex-end;
-	gap: 14px;
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+	align-items: end;
+	gap: 14px 16px;
 	padding: 16px 18px;
 	margin-bottom: 18px;
 	background: var(--surface);
@@ -226,6 +238,7 @@ form#searchForm button:active {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
+	min-width: 0;
 }
 
 .filter label {
@@ -238,18 +251,13 @@ form#searchForm button:active {
 
 .filter select,
 .filter input {
+	width: 100%;
 	background: var(--surface-strong);
 	color: var(--text);
 	border: 1px solid var(--border);
 	border-radius: 10px;
 	padding: 9px 12px;
-	min-width: 120px;
 	transition: border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.filter input[type="number"] {
-	min-width: 96px;
-	width: 96px;
 }
 
 .filter select:focus,
@@ -264,9 +272,9 @@ form#searchForm button:active {
 }
 
 .filter-clear {
-	margin-left: auto;
-	align-self: flex-end;
-	padding: 9px 18px;
+	grid-column: 1 / -1;
+	justify-self: end;
+	padding: 9px 22px;
 	background: transparent;
 	color: var(--text);
 	border: 1px solid var(--border-strong);
@@ -646,12 +654,12 @@ select:focus-visible {
 	}
 
 	.filters.is-open {
-		display: flex;
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
 	.filter-clear {
-		margin-left: 0;
-		width: 100%;
+		justify-self: stretch;
 		text-align: center;
 	}
 }
@@ -669,9 +677,14 @@ select:focus-visible {
 		height: 180px;
 	}
 
-	.filter input[type="number"] {
-		width: 100%;
-		min-width: 0;
+	/* Force two even columns instead of relying on auto-fit, which can
+	   overflow inside the stacked header on narrow screens. */
+	.facts {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.artist__header {
+		padding: 20px 16px;
 	}
 
 	/* Stack each concert's place over its dates so long names and dates never
