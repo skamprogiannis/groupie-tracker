@@ -167,7 +167,8 @@ form#searchForm button:active {
 
 #search-container {
 	position: relative;
-	width: 100%;
+	flex: 1 1 auto;
+	min-width: 0;
 	max-width: 420px;
 }
 
@@ -623,6 +624,11 @@ select:focus-visible {
 	.artist__header {
 		flex-direction: column;
 		text-align: center;
+		align-items: stretch;
+	}
+
+	.artist__image {
+		align-self: center;
 	}
 
 	.artist__intro h1 {
