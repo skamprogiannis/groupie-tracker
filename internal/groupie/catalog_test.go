@@ -97,10 +97,85 @@ func TestCatalogIncludesAuditData(t *testing.T) {
 func TestCatalogSearchMatchesJoinedFields(t *testing.T) {
 	catalog := newTestCatalog(t)
 
-	assertSingleSearchResult(t, catalog.Search("freddie"), "Queen")
-	assertSingleSearchResult(t, catalog.Search("26-03-2001"), "Gorillaz")
-	assertSingleSearchResult(t, catalog.Search("turku-finland"), "Travis Scott")
-	assertSingleSearchResult(t, catalog.Search("Rami Jaffee"), "Foo Fighters")
+	assertSingleSearchResult(t, catalog.Search(SearchQuery{Text: "freddie"}), "Queen")
+	assertSingleSearchResult(t, catalog.Search(SearchQuery{Text: "26-03-2001"}), "Gorillaz")
+	assertSingleSearchResult(t, catalog.Search(SearchQuery{Text: "turku-finland"}), "Travis Scott")
+	assertSingleSearchResult(t, catalog.Search(SearchQuery{Text: "Rami Jaffee"}), "Foo Fighters")
+}
+
+func TestCatalogSearchSortsByName(t *testing.T) {
+	catalog := newTestCatalog(t)
+
+	results := catalog.Search(SearchQuery{})
+	wantOrder := []string{"Foo Fighters", "Gorillaz", "Queen", "Travis Scott"}
+	if len(results) != len(wantOrder) {
+		t.Fatalf("len(results) = %d, want %d", len(results), len(wantOrder))
+	}
+	for i, want := range wantOrder {
+		if results[i].Name != want {
+			t.Fatalf("results[%d].Name = %q, want %q", i, results[i].Name, want)
+		}
+	}
+}
+
+func TestCatalogSortNewestAndMembers(t *testing.T) {
+	catalog := newTestCatalog(t)
+
+	newest := catalog.Search(SearchQuery{Sort: "newest"})
+	if newest[0].Name != "Travis Scott" {
+		t.Fatalf("newest[0] = %q, want Travis Scott (2008)", newest[0].Name)
+	}
+
+	byMembers := catalog.Search(SearchQuery{Sort: "members"})
+	if byMembers[0].Name != "Queen" {
+		t.Fatalf("members[0] = %q, want Queen (7 members)", byMembers[0].Name)
+	}
+	if byMembers[0].MemberCount != 7 {
+		t.Fatalf("Queen MemberCount = %d, want 7", byMembers[0].MemberCount)
+	}
+}
+
+func TestCatalogFilters(t *testing.T) {
+	catalog := newTestCatalog(t)
+
+	// Year range: Queen (1970) and Foo Fighters (1994) formed by 1995; Gorillaz
+	// (1998) and Travis Scott (2008) are excluded.
+	byYear := catalog.Search(SearchQuery{MaxYear: 1995})
+	assertResultNames(t, byYear, []string{"Foo Fighters", "Queen"})
+
+	// Member count: bands with at least 6 members are Queen (7) and Foo Fighters (6).
+	byMembers := catalog.Search(SearchQuery{MinMembers: 6})
+	assertResultNames(t, byMembers, []string{"Foo Fighters", "Queen"})
+
+	// Country: only Travis Scott played in Finland.
+	byCountry := catalog.Search(SearchQuery{Country: "finland"})
+	assertResultNames(t, byCountry, []string{"Travis Scott"})
+
+	// Filters compose with text search.
+	none := catalog.Search(SearchQuery{Text: "queen", MinYear: 2000})
+	if len(none) != 0 {
+		t.Fatalf("Queen formed in 1970 should be excluded by MinYear 2000, got %#v", none)
+	}
+}
+
+func TestCatalogFacets(t *testing.T) {
+	catalog := newTestCatalog(t)
+
+	facets := catalog.Facets()
+	if facets.MinYear != 1970 || facets.MaxYear != 2008 {
+		t.Fatalf("year range = %d-%d, want 1970-2008", facets.MinYear, facets.MaxYear)
+	}
+	if facets.MaxMembers != 7 {
+		t.Fatalf("MaxMembers = %d, want 7", facets.MaxMembers)
+	}
+	if !containsString(facets.Countries, "finland") || !containsString(facets.Countries, "usa") {
+		t.Fatalf("countries = %#v, want finland and usa", facets.Countries)
+	}
+	for i := 1; i < len(facets.Countries); i++ {
+		if facets.Countries[i-1] > facets.Countries[i] {
+			t.Fatalf("countries not sorted: %#v", facets.Countries)
+		}
+	}
 }
 
 func TestCatalogReturnsDefensiveCopies(t *testing.T) {
@@ -143,6 +218,23 @@ func assertSingleSearchResult(t *testing.T, results []SearchResult, wantName str
 	}
 	if results[0].Name != wantName {
 		t.Fatalf("Search()[0].Name = %q, want %q", results[0].Name, wantName)
+	}
+}
+
+func assertResultNames(t *testing.T, results []SearchResult, want []string) {
+	t.Helper()
+
+	got := make([]string, len(results))
+	for i, r := range results {
+		got[i] = r.Name
+	}
+	if len(got) != len(want) {
+		t.Fatalf("result names = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("result names = %v, want %v", got, want)
+		}
 	}
 }
 

@@ -27,8 +27,8 @@ func TestHomeRendersArtistCards(t *testing.T) {
 
 	assertStatus(t, rec, http.StatusOK)
 	assertBodyContains(t, rec, "<img src=\"queen.jpeg\"")
-	assertBodyContains(t, rec, "Members: Freddie Mercury, Brian May")
-	assertBodyContains(t, rec, "Created 1970")
+	assertBodyContains(t, rec, "Since 1970")
+	assertBodyContains(t, rec, "2 members")
 }
 
 func TestHomeHandlesEmptyCatalog(t *testing.T) {
@@ -248,8 +248,12 @@ func (c *fakeCatalog) Artists() []groupie.ArtistSummary {
 	}
 
 	return []groupie.ArtistSummary{
-		{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973", MemberSummary: "Freddie Mercury, Brian May"},
+		{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973", MemberSummary: "Freddie Mercury, Brian May", MemberCount: 2, LocationCount: 1},
 	}
+}
+
+func (c *fakeCatalog) Facets() groupie.FilterOptions {
+	return groupie.FilterOptions{MinYear: 1970, MaxYear: 1970, MinMembers: 2, MaxMembers: 2, Countries: []string{"uk"}}
 }
 
 func (c *fakeCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
@@ -272,19 +276,19 @@ func (c *fakeCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
 	}, true
 }
 
-func (c *fakeCatalog) Search(_ context.Context, query string) ([]groupie.SearchResult, error) {
-	q := strings.TrimSpace(query)
+func (c *fakeCatalog) Search(_ context.Context, query groupie.SearchQuery) ([]groupie.SearchResult, error) {
+	q := strings.TrimSpace(query.Text)
 	if q == "" {
 		// return all artists as search results
 		artists := c.Artists()
 		results := make([]groupie.SearchResult, 0, len(artists))
 		for _, a := range artists {
-			results = append(results, groupie.SearchResult{ID: a.ID, Name: a.Name, Image: a.Image, CreationDate: a.CreationDate, FirstAlbum: a.FirstAlbum})
+			results = append(results, groupie.SearchResult{ID: a.ID, Name: a.Name, Image: a.Image, CreationDate: a.CreationDate, FirstAlbum: a.FirstAlbum, MemberCount: a.MemberCount, LocationCount: a.LocationCount})
 		}
 		return results, nil
 	}
 	if strings.EqualFold(q, "queen") {
-		return []groupie.SearchResult{{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973"}}, nil
+		return []groupie.SearchResult{{ID: 1, Name: "Queen", Image: "queen.jpeg", CreationDate: 1970, FirstAlbum: "14-12-1973", MemberCount: 2, LocationCount: 1}}, nil
 	}
 	return nil, nil
 }
@@ -367,6 +371,10 @@ func (c *auditCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
 	}
 }
 
-func (c *auditCatalog) Search(_ context.Context, _ string) ([]groupie.SearchResult, error) {
+func (c *auditCatalog) Search(_ context.Context, _ groupie.SearchQuery) ([]groupie.SearchResult, error) {
 	return nil, nil
+}
+
+func (c *auditCatalog) Facets() groupie.FilterOptions {
+	return groupie.FilterOptions{MinYear: 1970, MaxYear: 2008, MinMembers: 1, MaxMembers: 7}
 }

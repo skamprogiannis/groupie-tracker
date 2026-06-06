@@ -50,6 +50,10 @@ func (mainTestCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {
 	return groupie.ArtistDetail{}, false
 }
 
-func (mainTestCatalog) Search(_ context.Context, _ string) ([]groupie.SearchResult, error) {
+func (mainTestCatalog) Facets() groupie.FilterOptions {
+	return groupie.FilterOptions{}
+}
+
+func (mainTestCatalog) Search(_ context.Context, _ groupie.SearchQuery) ([]groupie.SearchResult, error) {
 	return nil, nil
 }

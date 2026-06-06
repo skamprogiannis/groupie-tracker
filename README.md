@@ -27,18 +27,24 @@ The project uses only Go standard library packages.
 
 ## Routes
 
-- `/` - catalog home page
+- `/` - catalog home page with search, filters, and sorting
 - `/artist/{id}` - artist detail page
-- `/api/search?q=...` - JSON search endpoint
+- `/api/search?q=...` - JSON search endpoint (also accepts `sort`, `minYear`, `maxYear`, `minMembers`, `maxMembers`, `country`)
 - `/healthz` - health check
 - `/static/*` - embedded static assets
 
-## Client-server event (async search)
+## Client-server event (async search and filters)
 
-The required client-server event is search. Typing in the search box (or
-submitting the form) triggers a `GET /api/search?q=...` request from the
+The required client-server event is search. Typing in the search box, choosing a
+sort order, or adjusting a filter triggers a `GET /api/search` request from the
 browser, and the server answers with JSON that the page renders without a full
-reload.
+reload. The same endpoint powers the autocomplete dropdown, the filtered catalog
+grid, and the live "showing N of M" count.
+
+Filtering and sorting are applied server-side (in `internal/groupie`), so the
+logic is one tested source of truth: free-text match, creation-year range,
+member-count range, concert country, and sort by name, newest, oldest, or member
+count.
 
 On the server the query is handled asynchronously:
 

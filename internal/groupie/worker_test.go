@@ -14,7 +14,7 @@ type blockingCatalog struct {
 	released chan struct{}
 }
 
-func (c *blockingCatalog) Search(string) []SearchResult {
+func (c *blockingCatalog) Search(SearchQuery) []SearchResult {
 	<-c.released
 	return nil
 }
@@ -38,7 +38,7 @@ func TestSearchWorkerReturnsResults(t *testing.T) {
 	worker := NewSearchWorker(catalog)
 	defer worker.Close()
 
-	results, err := worker.Search(context.Background(), "freddie")
+	results, err := worker.Search(context.Background(), SearchQuery{Text: "freddie"})
 	if err != nil {
 		t.Fatalf("Search returned error: %v", err)
 	}
@@ -52,7 +52,7 @@ func TestSearchWorkerEmptyQueryReturnsAll(t *testing.T) {
 	worker := NewSearchWorker(catalog)
 	defer worker.Close()
 
-	results, err := worker.Search(context.Background(), "")
+	results, err := worker.Search(context.Background(), SearchQuery{Text: ""})
 	if err != nil {
 		t.Fatalf("Search returned error: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestSearchWorkerTimeout(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 
-	results, err := worker.Search(ctx, "anything")
+	results, err := worker.Search(ctx, SearchQuery{Text: "anything"})
 	if !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("err = %v, want context.DeadlineExceeded", err)
 	}
@@ -84,7 +84,7 @@ func TestSearchWorkerCancellation(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // already canceled before the call
 
-	_, err := worker.Search(ctx, "anything")
+	_, err := worker.Search(ctx, SearchQuery{Text: "anything"})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
@@ -96,7 +96,7 @@ func TestSearchWorkerCloseIsSafeAndRepeatable(t *testing.T) {
 	worker.Close()
 	worker.Close() // second Close must not panic
 
-	_, err := worker.Search(context.Background(), "queen")
+	_, err := worker.Search(context.Background(), SearchQuery{Text: "queen"})
 	if !errors.Is(err, ErrWorkerClosed) {
 		t.Fatalf("err = %v, want ErrWorkerClosed after Close", err)
 	}
@@ -104,7 +104,7 @@ func TestSearchWorkerCloseIsSafeAndRepeatable(t *testing.T) {
 
 func TestSearchWorkerNilReceiver(t *testing.T) {
 	var worker *SearchWorker
-	if _, err := worker.Search(context.Background(), "queen"); !errors.Is(err, ErrWorkerClosed) {
+	if _, err := worker.Search(context.Background(), SearchQuery{Text: "queen"}); !errors.Is(err, ErrWorkerClosed) {
 		t.Fatalf("err = %v, want ErrWorkerClosed for nil worker", err)
 	}
 	worker.Close() // must not panic
@@ -121,7 +121,7 @@ func TestSearchWorkerHandlesConcurrentRequests(t *testing.T) {
 	for i := 0; i < callers; i++ {
 		go func() {
 			defer wg.Done()
-			if _, err := worker.Search(context.Background(), "queen"); err != nil {
+			if _, err := worker.Search(context.Background(), SearchQuery{Text: "queen"}); err != nil {
 				t.Errorf("concurrent Search error: %v", err)
 			}
 		}()

@@ -27,13 +27,14 @@ const searchTimeout = 5 * time.Second
 type Catalog interface {
 	Artists() []groupie.ArtistSummary
 	ArtistByID(id int) (groupie.ArtistDetail, bool)
+	Facets() groupie.FilterOptions
 }
 
 // Searcher handles the asynchronous client-server search event. The concrete
 // implementation (groupie.SearchWorker) runs on its own goroutine and honors
 // the request context for timeout and cancellation.
 type Searcher interface {
-	Search(ctx context.Context, query string) ([]groupie.SearchResult, error)
+	Search(ctx context.Context, query groupie.SearchQuery) ([]groupie.SearchResult, error)
 }
 
 type Server struct {
@@ -72,20 +73,29 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 		s.internalServerError(w, r)
 		return
 	}
+
 	artists := s.catalog.Artists()
+	facets := s.catalog.Facets()
+	// Match the default sort control ("name") for the initial render.
+	sort.SliceStable(artists, func(i, j int) bool {
+		return strings.ToLower(artists[i].Name) < strings.ToLower(artists[j].Name)
+	})
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg" aria-hidden="true"></dotlottie-player><main><h1>Groupie Tracker</h1><form id="searchForm" action="/api/search" method="get" role="search"><div id="search-container"><input id="q" name="q" type="search" placeholder="Search artists..." aria-label="Search artists" role="combobox" aria-expanded="false" aria-controls="dropdown" aria-autocomplete="list" autocomplete="off"><div id="dropdown" class="autocomplete-list" role="listbox" aria-label="Artist search results"></div></div><button type="submit">Search</button></form><section><h2>Artists</h2>`)
-	if len(artists) == 0 {
-		_, _ = fmt.Fprint(w, `<p class="empty-state">No artists available at this time.</p>`)
-	} else {
-		_, _ = fmt.Fprint(w, `<ul class="catalog">`)
-		for _, artist := range artists {
-			_, _ = fmt.Fprintf(w, `<li class="catalog-item"><a class="catalog-link" href="/artist/%d"><img src="%s" alt="%s" loading="lazy" decoding="async"><div class="catalog-card"><h3>%s</h3><p class="catalog-card__info">Created %d · First album: %s</p><p class="catalog-card__members">Members: %s</p></div></a></li>`, artist.ID, html.EscapeString(artist.Image), html.EscapeString(artist.Name), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum), html.EscapeString(artist.MemberSummary))
-		}
-		_, _ = fmt.Fprint(w, `</ul>`)
+	writeHead(w, "Groupie Tracker")
+	fmt.Fprintf(w, `<header class="page-header"><h1>Groupie Tracker</h1><p class="page-subtitle">%s</p></header>`, html.EscapeString(datasetSummary(len(artists), facets)))
+
+	fmt.Fprint(w, `<form id="searchForm" action="/api/search" method="get" role="search"><div id="search-container"><input id="q" name="q" type="search" placeholder="Search artists..." aria-label="Search artists" role="combobox" aria-expanded="false" aria-controls="dropdown" aria-autocomplete="list" autocomplete="off"><div id="dropdown" class="autocomplete-list" role="listbox" aria-label="Artist search results"></div></div><button type="submit">Search</button></form>`)
+
+	writeControls(w, facets)
+
+	fmt.Fprintf(w, `<p class="results-meta" id="result-count" aria-live="polite">Showing %d of %d artists</p>`, len(artists), len(artists))
+	fmt.Fprint(w, `<section aria-label="Artists"><ul class="catalog" id="catalog">`)
+	for _, artist := range artists {
+		writeArtistCard(w, artist.ID, artist.Name, artist.Image, artist.CreationDate, artist.MemberCount, artist.LocationCount)
 	}
-	_, _ = fmt.Fprint(w, `</section></main></body></html>`)
+	fmt.Fprint(w, `</ul><p class="empty-state" id="empty-state" hidden>No artists match these filters.</p></section>`)
+	writeFoot(w)
 }
 
 func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
@@ -109,12 +119,22 @@ func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s - Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg" aria-hidden="true"></dotlottie-player><main><a class="back-button" href="/">&larr; Back to catalog</a><article><h1>%s</h1><img src="%s" alt="%s"><dl><dt>Creation date</dt><dd>%d</dd><dt>First album</dt><dd>%s</dd></dl>`, html.EscapeString(artist.Name), html.EscapeString(artist.Name), html.EscapeString(artist.Image), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
-	writeStringList(w, "Members", artist.Members)
-	writeStringList(w, "Locations", artist.Locations)
-	writeStringList(w, "Dates", artist.Dates)
-	writeRelations(w, artist.DatesLocations)
-	_, _ = fmt.Fprint(w, `</article></main></body></html>`)
+	writeHead(w, artist.Name+" - Groupie Tracker")
+	fmt.Fprint(w, `<a class="back-button" href="/">&larr; Back to catalog</a>`)
+
+	fmt.Fprintf(w, `<article class="artist"><header class="artist__header"><img class="artist__image" src="%s" alt="%s"><div class="artist__intro"><h1>%s</h1><dl class="facts">`,
+		html.EscapeString(artist.Image), html.EscapeString(artist.Name), html.EscapeString(artist.Name))
+	writeFact(w, "Formed", strconv.Itoa(artist.CreationDate))
+	writeFact(w, "First album", strings.TrimPrefix(artist.FirstAlbum, "*"))
+	writeFact(w, "Members", strconv.Itoa(len(artist.Members)))
+	writeFact(w, "Cities played", strconv.Itoa(len(artist.Locations)))
+	fmt.Fprint(w, `</dl></div></header>`)
+
+	writeMembers(w, artist.Members)
+	writeConcerts(w, artist.Locations, artist.DatesLocations)
+
+	fmt.Fprint(w, `</article>`)
+	writeFoot(w)
 }
 
 func (s *Server) search(w http.ResponseWriter, r *http.Request) {
@@ -130,7 +150,16 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := r.URL.Query().Get("q")
+	params := r.URL.Query()
+	query := groupie.SearchQuery{
+		Text:       params.Get("q"),
+		MinYear:    atoiOrZero(params.Get("minYear")),
+		MaxYear:    atoiOrZero(params.Get("maxYear")),
+		MinMembers: atoiOrZero(params.Get("minMembers")),
+		MaxMembers: atoiOrZero(params.Get("maxMembers")),
+		Country:    params.Get("country"),
+		Sort:       params.Get("sort"),
+	}
 
 	// Hand the query to the async worker with a bounded context. The worker
 	// replies on a channel; if it does not answer before the deadline (or the
@@ -144,12 +173,18 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	response := searchResponse{
-		Query:   strings.TrimSpace(query),
-		Results: results,
+	total := 0
+	if s.catalog != nil {
+		total = len(s.catalog.Artists())
 	}
-	_ = json.NewEncoder(w).Encode(response)
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(searchResponse{
+		Query:   strings.TrimSpace(query.Text),
+		Total:   total,
+		Count:   len(results),
+		Results: results,
+	})
 }
 
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
@@ -217,40 +252,119 @@ func (s *Server) errorPage(w http.ResponseWriter, status int, title string, mess
 	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s</title><link rel="stylesheet" href="/static/site.css"></head><body><main><h1>%s</h1><p>%s</p><p><a href="/">Back to catalog</a></p></main></body></html>`, html.EscapeString(title), html.EscapeString(title), html.EscapeString(message))
 }
 
-func writeStringList(w http.ResponseWriter, title string, values []string) {
-	_, _ = fmt.Fprintf(w, `<section><h2>%s</h2><ul>`, html.EscapeString(title))
-	for _, value := range values {
-		// Remove leading asterisks from dates
-		cleaned := strings.TrimPrefix(value, "*")
-		_, _ = fmt.Fprintf(w, `<li>%s</li>`, html.EscapeString(cleaned))
+// writeHead writes the shared document head, decorative background, and opening
+// <main> tag. Every full page uses it so the chrome stays in one place.
+func writeHead(w http.ResponseWriter, title string) {
+	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg" aria-hidden="true"></dotlottie-player><div class="bg-veil" aria-hidden="true"></div><main>`, html.EscapeString(title))
+}
+
+func writeFoot(w http.ResponseWriter) {
+	_, _ = fmt.Fprint(w, `</main></body></html>`)
+}
+
+// writeControls renders the filter and sort toolbar, populated from the dataset
+// facets so the year and country options always reflect the real data.
+func writeControls(w http.ResponseWriter, facets groupie.FilterOptions) {
+	_, _ = fmt.Fprint(w, `<form id="filterBar" class="filters" aria-label="Filter and sort artists"><div class="filter"><label for="f-sort">Sort</label><select id="f-sort" name="sort"><option value="name">Name A–Z</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="members">Most members</option></select></div>`)
+
+	_, _ = fmt.Fprintf(w, `<div class="filter"><label for="f-min-year">From year</label><input id="f-min-year" name="minYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div><div class="filter"><label for="f-max-year">To year</label><input id="f-max-year" name="maxYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div>`,
+		facets.MinYear, facets.MaxYear, facets.MinYear, facets.MinYear, facets.MaxYear, facets.MaxYear)
+
+	_, _ = fmt.Fprintf(w, `<div class="filter"><label for="f-min-members">Min members</label><input id="f-min-members" name="minMembers" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div><div class="filter"><label for="f-max-members">Max members</label><input id="f-max-members" name="maxMembers" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div>`,
+		facets.MinMembers, facets.MaxMembers, facets.MinMembers, facets.MinMembers, facets.MaxMembers, facets.MaxMembers)
+
+	_, _ = fmt.Fprint(w, `<div class="filter"><label for="f-country">Country</label><select id="f-country" name="country"><option value="">All countries</option>`)
+	for _, country := range facets.Countries {
+		_, _ = fmt.Fprintf(w, `<option value="%s">%s</option>`, html.EscapeString(country), html.EscapeString(groupie.FormatLocation(country)))
+	}
+	_, _ = fmt.Fprint(w, `</select></div><button type="reset" id="f-clear" class="filter-clear">Clear</button></form>`)
+}
+
+// writeArtistCard renders one catalog card. The browser mirrors this exact
+// markup in site.js so filtered results look identical to the initial page.
+func writeArtistCard(w http.ResponseWriter, id int, name, image string, creation, members, locations int) {
+	_, _ = fmt.Fprintf(w, `<li class="catalog-item"><a class="catalog-link" href="/artist/%d"><img src="%s" alt="%s" loading="lazy" decoding="async"><div class="catalog-card"><h3>%s</h3><p class="catalog-card__meta">Since %d</p><ul class="card-stats"><li>%s</li><li>%s</li></ul></div></a></li>`,
+		id, html.EscapeString(image), html.EscapeString(name), html.EscapeString(name), creation, html.EscapeString(countLabel(members, "member")), html.EscapeString(countLabel(locations, "location")))
+}
+
+func writeFact(w http.ResponseWriter, label, value string) {
+	_, _ = fmt.Fprintf(w, `<div class="fact"><dt>%s</dt><dd>%s</dd></div>`, html.EscapeString(label), html.EscapeString(value))
+}
+
+func writeMembers(w http.ResponseWriter, members []string) {
+	if len(members) == 0 {
+		return
+	}
+	_, _ = fmt.Fprint(w, `<section class="panel"><h2>Members</h2><ul class="chips">`)
+	for _, member := range members {
+		_, _ = fmt.Fprintf(w, `<li class="chip">%s</li>`, html.EscapeString(member))
 	}
 	_, _ = fmt.Fprint(w, `</ul></section>`)
 }
 
-func writeRelations(w http.ResponseWriter, datesLocations map[string][]string) {
-	locations := sortedKeys(datesLocations)
-	_, _ = fmt.Fprint(w, `<section><h2>Relations</h2><dl>`)
-	for _, location := range locations {
-		dates := datesLocations[location]
-		cleanedDates := make([]string, len(dates))
-		for i, date := range dates {
-			cleanedDates[i] = strings.TrimPrefix(date, "*")
-		}
-		_, _ = fmt.Fprintf(w, `<dt>%s</dt><dd>%s</dd>`, html.EscapeString(location), html.EscapeString(strings.Join(cleanedDates, ", ")))
+// writeConcerts renders one entry per location (so every location stays
+// visible), pairing it with the dates from the relation data when present. The
+// raw slug is kept in a title attribute for accessibility and exact lookups.
+func writeConcerts(w http.ResponseWriter, locations []string, datesLocations map[string][]string) {
+	_, _ = fmt.Fprint(w, `<section class="panel"><h2>Concerts</h2>`)
+	if len(locations) == 0 {
+		_, _ = fmt.Fprint(w, `<p class="muted">No concerts listed.</p></section>`)
+		return
 	}
-	_, _ = fmt.Fprint(w, `</dl></section>`)
+
+	ordered := make([]string, len(locations))
+	copy(ordered, locations)
+	sort.Strings(ordered)
+
+	_, _ = fmt.Fprint(w, `<ul class="concert-list">`)
+	for _, location := range ordered {
+		dates := cleanDates(datesLocations[location])
+		datesHTML := `<span class="concert__dates muted">No dates announced</span>`
+		if len(dates) > 0 {
+			datesHTML = `<span class="concert__dates">` + html.EscapeString(strings.Join(dates, " · ")) + `</span>`
+		}
+		_, _ = fmt.Fprintf(w, `<li class="concert"><span class="concert__place" title="%s">%s</span>%s</li>`,
+			html.EscapeString(location), html.EscapeString(groupie.FormatLocation(location)), datesHTML)
+	}
+	_, _ = fmt.Fprint(w, `</ul></section>`)
 }
 
-func sortedKeys(values map[string][]string) []string {
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
+func cleanDates(dates []string) []string {
+	cleaned := make([]string, 0, len(dates))
+	for _, date := range dates {
+		cleaned = append(cleaned, strings.TrimPrefix(date, "*"))
 	}
-	sort.Strings(keys)
-	return keys
+	return cleaned
+}
+
+func datasetSummary(count int, facets groupie.FilterOptions) string {
+	if count == 0 {
+		return "No artists available"
+	}
+	if facets.MinYear == 0 || facets.MinYear == facets.MaxYear {
+		return fmt.Sprintf("%s in the catalog", countLabel(count, "artist"))
+	}
+	return fmt.Sprintf("%s · formed %d–%d", countLabel(count, "artist"), facets.MinYear, facets.MaxYear)
+}
+
+func countLabel(n int, noun string) string {
+	if n == 1 {
+		return "1 " + noun
+	}
+	return fmt.Sprintf("%d %ss", n, noun)
+}
+
+func atoiOrZero(value string) int {
+	n, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil || n < 0 {
+		return 0
+	}
+	return n
 }
 
 type searchResponse struct {
 	Query   string                 `json:"query"`
+	Total   int                    `json:"total"`
+	Count   int                    `json:"count"`
 	Results []groupie.SearchResult `json:"results"`
 }

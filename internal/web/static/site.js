@@ -2,7 +2,10 @@ document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('searchForm');
     const input = document.getElementById('q');
     const dropdown = document.getElementById('dropdown');
-    const catalog = document.querySelector('.catalog');
+    const filterBar = document.getElementById('filterBar');
+    const catalog = document.getElementById('catalog');
+    const resultCount = document.getElementById('result-count');
+    const emptyState = document.getElementById('empty-state');
 
     function escapeHtml(s) {
         return String(s).replace(/[&<>"']/g, function (c) {
@@ -10,135 +13,156 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function renderResults(results) {
-        if (!catalog) return;
-        const existing = catalog.parentNode.querySelector('.empty-state');
-        if (existing) existing.remove();
-
-        if (!results || results.length === 0) {
-            catalog.innerHTML = '';
-            const p = document.createElement('p');
-            p.className = 'empty-state';
-            p.textContent = 'No results found.';
-            catalog.parentNode.appendChild(p);
-            return;
-        }
-
-        catalog.innerHTML = results.map(r => {
-            return `<li class="catalog-item"><a class="catalog-link" href="/artist/${r.id}"><img src="${escapeHtml(r.image)}" alt="${escapeHtml(r.name)}"><div class="catalog-card"><h3>${escapeHtml(r.name)}</h3><p class="catalog-card__info">Created ${r.creationDate} · First album: ${escapeHtml(r.firstAlbum)}</p></div></a></li>`;
-        }).join('');
+    function countLabel(n, noun) {
+        return n === 1 ? '1 ' + noun : n + ' ' + noun + 's';
     }
 
-    function formatLocation(raw) {
-        if (!raw) return raw;
-        const cleaned = raw.replace(/[_-]+/g, ' ');
-        return cleaned.split(' ').map(function (w) {
-            if (!w) return w;
-            return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
-        }).join(' ');
+    // Mirrors writeArtistCard in server.go so filtered cards match the page.
+    function renderCard(r) {
+        const id = r.id != null ? r.id : r.ID;
+        const name = r.name || r.Name || '';
+        const image = r.image || r.Image || '';
+        const creation = r.creationDate || r.CreationDate || 0;
+        const members = r.memberCount || r.MemberCount || 0;
+        const locations = r.locationCount || r.LocationCount || 0;
+        return '<li class="catalog-item"><a class="catalog-link" href="/artist/' + id + '">' +
+            '<img src="' + escapeHtml(image) + '" alt="' + escapeHtml(name) + '" loading="lazy" decoding="async">' +
+            '<div class="catalog-card"><h3>' + escapeHtml(name) + '</h3>' +
+            '<p class="catalog-card__meta">Since ' + creation + '</p>' +
+            '<ul class="card-stats"><li>' + escapeHtml(countLabel(members, 'member')) + '</li>' +
+            '<li>' + escapeHtml(countLabel(locations, 'location')) + '</li></ul></div></a></li>';
     }
 
-    function formatExistingLocationsAndRelations() {
-        document.querySelectorAll('section').forEach(function (sec) {
-            const h2 = sec.querySelector('h2');
-            if (!h2) return;
-            const title = h2.textContent.trim();
-            if (title === 'Locations') {
-                sec.querySelectorAll('ul li').forEach(function (li) {
-                    li.textContent = formatLocation(li.textContent.trim());
-                });
-            }
-            if (title === 'Relations') {
-                sec.querySelectorAll('dt').forEach(function (dt) {
-                    dt.textContent = formatLocation(dt.textContent.trim());
-                });
-            }
-        });
+    // Collect the text query plus every active filter/sort control.
+    function buildQuery() {
+        const params = new URLSearchParams();
+        const q = ((input && input.value) || '').trim();
+        if (q) {
+            params.set('q', q);
+        }
+        if (filterBar) {
+            ['sort', 'minYear', 'maxYear', 'minMembers', 'maxMembers', 'country'].forEach(function (name) {
+                const el = filterBar.elements[name];
+                if (el && el.value) {
+                    params.set(name, el.value);
+                }
+            });
+        }
+        return params;
     }
 
-    if (input && dropdown) {
-        let debounceTimer = null;
-        let activeIndex = -1;
+    /* ----- autocomplete dropdown state ----- */
+    let activeIndex = -1;
 
-        function options() {
-            return Array.from(dropdown.querySelectorAll('.autocomplete-item'));
-        }
+    function options() {
+        return dropdown ? Array.from(dropdown.querySelectorAll('.autocomplete-item')) : [];
+    }
 
-        function isOpen() {
-            return dropdown.style.display === 'block';
-        }
+    function isOpen() {
+        return dropdown && dropdown.style.display === 'block';
+    }
 
-        function openDropdown() {
-            dropdown.style.display = 'block';
-            input.setAttribute('aria-expanded', 'true');
-        }
+    function openDropdown() {
+        if (!dropdown) return;
+        dropdown.style.display = 'block';
+        if (input) input.setAttribute('aria-expanded', 'true');
+    }
 
-        function closeDropdown() {
-            dropdown.style.display = 'none';
+    function closeDropdown() {
+        if (!dropdown) return;
+        dropdown.style.display = 'none';
+        activeIndex = -1;
+        if (input) {
             input.setAttribute('aria-expanded', 'false');
             input.removeAttribute('aria-activedescendant');
-            activeIndex = -1;
+        }
+    }
+
+    function setActive(index) {
+        const opts = options();
+        opts.forEach(function (opt, i) {
+            const active = i === index;
+            opt.classList.toggle('is-active', active);
+            opt.setAttribute('aria-selected', active ? 'true' : 'false');
+        });
+        activeIndex = index;
+        if (index >= 0 && opts[index]) {
+            input.setAttribute('aria-activedescendant', opts[index].id);
+            opts[index].scrollIntoView({ block: 'nearest' });
+        } else if (input) {
+            input.removeAttribute('aria-activedescendant');
+        }
+    }
+
+    function populateDropdown(results) {
+        if (!dropdown) return;
+        dropdown.innerHTML = '';
+        activeIndex = -1;
+        const top = results.slice(0, 8);
+        if (top.length === 0) {
+            closeDropdown();
+            return;
+        }
+        top.forEach(function (artist, i) {
+            const item = document.createElement('div');
+            item.className = 'autocomplete-item';
+            item.id = 'ac-option-' + i;
+            item.setAttribute('role', 'option');
+            item.setAttribute('aria-selected', 'false');
+            const name = artist.name || artist.Name || '';
+            const match = artist.matchedDetail || '';
+            item.textContent = match ? name + ' - ' + match : name;
+            const target = '/artist/' + (artist.id != null ? artist.id : artist.ID);
+            item.addEventListener('mouseenter', function () { setActive(i); });
+            item.addEventListener('click', function () { window.location.href = target; });
+            dropdown.appendChild(item);
+        });
+        openDropdown();
+    }
+
+    /* ----- the shared client-server search/filter request ----- */
+    let searchTimer = null;
+
+    async function runSearch(updateDropdown) {
+        const params = buildQuery();
+        let data;
+        try {
+            const res = await fetch('/api/search?' + params.toString());
+            data = await res.json();
+        } catch (err) {
+            return; // keep the current grid on a network error
+        }
+        const results = data.results || [];
+
+        if (catalog) {
+            catalog.innerHTML = results.map(renderCard).join('');
+        }
+        if (emptyState) {
+            emptyState.hidden = results.length !== 0;
+        }
+        if (resultCount) {
+            const total = data.total != null ? data.total : results.length;
+            resultCount.textContent = 'Showing ' + results.length + ' of ' + total + ' artists';
         }
 
-        function setActive(index) {
-            const opts = options();
-            opts.forEach(function (opt, i) {
-                const active = i === index;
-                opt.classList.toggle('is-active', active);
-                opt.setAttribute('aria-selected', active ? 'true' : 'false');
-            });
-            activeIndex = index;
-            if (index >= 0 && opts[index]) {
-                input.setAttribute('aria-activedescendant', opts[index].id);
-                opts[index].scrollIntoView({ block: 'nearest' });
-            } else {
-                input.removeAttribute('aria-activedescendant');
-            }
-        }
-
-        input.addEventListener('input', function () {
-            const q = input.value || '';
+        if (updateDropdown) {
+            const q = ((input && input.value) || '').trim();
             if (q.length < 1) {
                 closeDropdown();
-                return;
+            } else {
+                populateDropdown(results);
             }
+        }
+    }
 
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(async function () {
-                try {
-                    const res = await fetch('/api/search?q=' + encodeURIComponent(q));
-                    const data = await res.json();
-                    const results = data.results || [];
+    function scheduleSearch(updateDropdown) {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () { runSearch(updateDropdown); }, 180);
+    }
 
-                    dropdown.innerHTML = '';
-                    activeIndex = -1;
-                    if (results.length > 0) {
-                        results.forEach((artist, i) => {
-                            const item = document.createElement('div');
-                            item.className = 'autocomplete-item';
-                            item.id = 'ac-option-' + i;
-                            item.setAttribute('role', 'option');
-                            item.setAttribute('aria-selected', 'false');
-
-                            const name = (artist.name || artist.Name);
-                            const match = (artist.matchedDetail || '');
-                            item.textContent = match ? `${name} - ${match}` : name;
-
-                            const target = '/artist/' + (artist.id || artist.ID);
-                            item.addEventListener('mouseenter', () => setActive(i));
-                            item.addEventListener('click', () => {
-                                window.location.href = target;
-                            });
-                            dropdown.appendChild(item);
-                        });
-                        openDropdown();
-                    } else {
-                        closeDropdown();
-                    }
-                } catch (err) {
-                    closeDropdown();
-                }
-            }, 150);
+    if (input) {
+        input.addEventListener('input', function () {
+            scheduleSearch(true);
         });
 
         input.addEventListener('keydown', function (ev) {
@@ -166,24 +190,32 @@ document.addEventListener('DOMContentLoaded', function () {
                     break;
             }
         });
-
-        document.addEventListener('click', function (ev) {
-            if (!form.contains(ev.target)) {
-                closeDropdown();
-            }
-        });
     }
 
     if (form) {
         form.addEventListener('submit', function (ev) {
             ev.preventDefault();
-            const q = input.value || '';
-            fetch('/api/search?q=' + encodeURIComponent(q))
-                .then(res => res.json())
-                .then(data => renderResults(data.results))
-                .catch(() => { });
+            closeDropdown();
+            runSearch(false);
         });
     }
 
-    formatExistingLocationsAndRelations();
+    if (filterBar) {
+        filterBar.addEventListener('change', function () { scheduleSearch(false); });
+        filterBar.addEventListener('input', function (ev) {
+            if (ev.target && ev.target.type === 'number') {
+                scheduleSearch(false);
+            }
+        });
+        // The Clear button is a native form reset; re-run once values are cleared.
+        filterBar.addEventListener('reset', function () {
+            setTimeout(function () { runSearch(false); }, 0);
+        });
+    }
+
+    document.addEventListener('click', function (ev) {
+        if (form && !form.contains(ev.target)) {
+            closeDropdown();
+        }
+    });
 });

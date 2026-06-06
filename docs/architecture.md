@@ -24,15 +24,15 @@ graph TD
 
 ## 4. Routes
 
-- `GET /`: home page with artist catalog and search form.
-- `GET /artist/{id}`: artist detail page.
-- `GET /api/search?q=...`: client-server event endpoint returning JSON.
+- `GET /`: home page with artist catalog, search form, and filter/sort toolbar.
+- `GET /artist/{id}`: artist detail page (facts header, member chips, concerts).
+- `GET /api/search`: client-server event endpoint returning JSON. Accepts `q` plus `sort`, `minYear`, `maxYear`, `minMembers`, `maxMembers`, and `country`.
 - `GET /healthz`: health check for deployment.
 - `/static/*`: embedded CSS and JavaScript assets.
 
 ## 5. Async Event Design
 
-Search requests enter `GET /api/search`, which creates a timeout-bound context and sends the query to `SearchWorker`. The worker runs in a goroutine and communicates through channels. It searches the immutable in-memory catalog and replies through a per-request response channel. Closing the worker shuts down the goroutine safely.
+Search, filter, and sort requests enter `GET /api/search`, which parses the query parameters into a `SearchQuery`, creates a timeout-bound context, and sends it to `SearchWorker`. The worker runs in a goroutine and communicates through channels. It filters and sorts the immutable in-memory catalog and replies through a per-request response channel. The browser uses one response to update both the autocomplete dropdown and the catalog grid. Closing the worker shuts down the goroutine safely.
 
 ## 6. Error Handling
 

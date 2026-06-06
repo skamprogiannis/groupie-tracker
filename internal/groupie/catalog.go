@@ -59,16 +59,78 @@ func (c *Catalog) Artists() []ArtistSummary {
 
 	summaries := make([]ArtistSummary, 0, len(c.artists))
 	for _, artist := range c.artists {
-		summaries = append(summaries, ArtistSummary{
-			ID:            artist.ID,
-			Name:          artist.Name,
-			Image:         artist.Image,
-			CreationDate:  artist.CreationDate,
-			FirstAlbum:    artist.FirstAlbum,
-			MemberSummary: strings.Join(artist.Members, ", "),
-		})
+		summaries = append(summaries, summarize(artist))
 	}
 	return summaries
+}
+
+func summarize(artist ArtistDetail) ArtistSummary {
+	return ArtistSummary{
+		ID:            artist.ID,
+		Name:          artist.Name,
+		Image:         artist.Image,
+		CreationDate:  artist.CreationDate,
+		FirstAlbum:    artist.FirstAlbum,
+		MemberSummary: strings.Join(artist.Members, ", "),
+		MemberCount:   len(artist.Members),
+		LocationCount: len(artist.Locations),
+	}
+}
+
+// Facets reports the dataset bounds used to build the filter controls: the
+// creation-year range, the member-count range, and the sorted list of distinct
+// concert countries.
+func (c *Catalog) Facets() FilterOptions {
+	if c == nil || len(c.artists) == 0 {
+		return FilterOptions{}
+	}
+
+	opts := FilterOptions{
+		MinYear:    c.artists[0].CreationDate,
+		MaxYear:    c.artists[0].CreationDate,
+		MinMembers: len(c.artists[0].Members),
+		MaxMembers: len(c.artists[0].Members),
+	}
+	countries := make(map[string]struct{})
+	for _, artist := range c.artists {
+		if artist.CreationDate < opts.MinYear {
+			opts.MinYear = artist.CreationDate
+		}
+		if artist.CreationDate > opts.MaxYear {
+			opts.MaxYear = artist.CreationDate
+		}
+		if n := len(artist.Members); n < opts.MinMembers {
+			opts.MinMembers = n
+		} else if n > opts.MaxMembers {
+			opts.MaxMembers = n
+		}
+		for _, location := range artist.Locations {
+			if country := countryOf(location); country != "" {
+				countries[country] = struct{}{}
+			}
+		}
+	}
+
+	opts.Countries = make([]string, 0, len(countries))
+	for country := range countries {
+		opts.Countries = append(opts.Countries, country)
+	}
+	sort.Strings(opts.Countries)
+	return opts
+}
+
+// countryOf extracts the country slug from a "city-country" location string,
+// e.g. "los_angeles-usa" -> "usa". It returns the whole string when there is no
+// separator.
+func countryOf(location string) string {
+	location = strings.TrimSpace(location)
+	if location == "" {
+		return ""
+	}
+	if idx := strings.LastIndex(location, "-"); idx >= 0 && idx < len(location)-1 {
+		return location[idx+1:]
+	}
+	return location
 }
 
 func (c *Catalog) ArtistByID(id int) (ArtistDetail, bool) {

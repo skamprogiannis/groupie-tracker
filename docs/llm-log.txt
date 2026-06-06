@@ -60,3 +60,12 @@ Entries:
    - Copied/Edited: All code, tests, and doc text were newly written for this milestone; the existing architecture.md already described the worker and graceful shutdown, and the implementation was made to match it.
    - Verification: go vet ./... clean; gofmt -l . clean; go test -race ./... passes; manual smoke test of /, /artist/{id}, /api/search, 404, 405, and SIGTERM graceful shutdown against the live API.
    - Affected: m3 issues; internal/groupie/worker.go (new), internal/groupie/worker_test.go (new), internal/groupie/search.go, internal/web/server.go, internal/web/server_test.go, main.go, main_test.go, README.md, docs/llm-log.txt.
+
+6. Task: Design pass - filters, sorting, detail redesign, theme refinement
+   - Date: 2026-06-06
+   - Agent/Model: Claude Code (claude-opus-4-8), impeccable design skill
+   - Asked: Act as a design specialist; review the whole UI and add filters / sorting and design improvements. Chosen scope: refine the existing theme (reduce glassmorphism) and add a filter+sort bar, a redesigned detail page, a dataset header, and a country filter.
+   - Action: Added server-side filtering and sorting (free-text, creation-year range, member-count range, concert country; sort by name/newest/oldest/members) as a SearchQuery threaded through the async worker; added Catalog.Facets to drive filter controls from real data; extended SearchResult/ArtistSummary with member and location counts; rebuilt the home page with a dataset header, filter/sort toolbar, shared card renderer, and a live "showing N of M" count; redesigned the artist detail page into a facts header, member chips, and a concerts list (raw location slugs kept in title attributes for audit/exact match); refined the stylesheet with design tokens, a background veil, and reduced glass; rewrote site.js so one request updates both the dropdown and grid.
+   - Copied/Edited: All code, styles, and tests newly written this session; the dataset and audit constraints (raw slugs, audit examples) were preserved deliberately.
+   - Verification: gofmt clean; go vet clean; go test -race ./... passes (added catalog filter/sort/facets tests); live smoke test confirmed filter+sort counts (e.g. country=usa 37 of 52) and that detail pages keep raw location slugs.
+   - Affected: internal/groupie/catalog_models.go, catalog.go, search.go, worker.go, catalog_test.go, worker_test.go; internal/web/server.go, server_test.go, static/site.css, static/site.js; main_test.go; README.md, docs/architecture.md, docs/llm-log.txt.

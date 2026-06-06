@@ -14,14 +14,14 @@ var ErrWorkerClosed = errors.New("search worker closed")
 // in-memory *Catalog satisfies it, and tests can supply slow or failing
 // implementations to exercise timeout and cancellation paths.
 type searchable interface {
-	Search(query string) []SearchResult
+	Search(query SearchQuery) []SearchResult
 }
 
 // searchRequest carries a single query plus the caller's context and a private
 // reply channel through the worker.
 type searchRequest struct {
 	ctx   context.Context
-	query string
+	query SearchQuery
 	reply chan []SearchResult
 }
 
@@ -86,7 +86,7 @@ func (w *SearchWorker) handle(req searchRequest) {
 // Search sends a query to the worker and waits for the reply, the context
 // deadline, or worker shutdown, whichever happens first. It is safe for
 // concurrent use.
-func (w *SearchWorker) Search(ctx context.Context, query string) ([]SearchResult, error) {
+func (w *SearchWorker) Search(ctx context.Context, query SearchQuery) ([]SearchResult, error) {
 	if w == nil {
 		return nil, ErrWorkerClosed
 	}
