@@ -191,7 +191,9 @@ func (s *Server) errorPage(w http.ResponseWriter, status int, title string, mess
 func writeStringList(w http.ResponseWriter, title string, values []string) {
 	_, _ = fmt.Fprintf(w, `<section><h2>%s</h2><ul>`, html.EscapeString(title))
 	for _, value := range values {
-		_, _ = fmt.Fprintf(w, `<li>%s</li>`, html.EscapeString(value))
+		// Remove leading asterisks from dates
+		cleaned := strings.TrimPrefix(value, "*")
+		_, _ = fmt.Fprintf(w, `<li>%s</li>`, html.EscapeString(cleaned))
 	}
 	_, _ = fmt.Fprint(w, `</ul></section>`)
 }
@@ -200,7 +202,12 @@ func writeRelations(w http.ResponseWriter, datesLocations map[string][]string) {
 	locations := sortedKeys(datesLocations)
 	_, _ = fmt.Fprint(w, `<section><h2>Relations</h2><dl>`)
 	for _, location := range locations {
-		_, _ = fmt.Fprintf(w, `<dt>%s</dt><dd>%s</dd>`, html.EscapeString(location), html.EscapeString(strings.Join(datesLocations[location], ", ")))
+		dates := datesLocations[location]
+		cleanedDates := make([]string, len(dates))
+		for i, date := range dates {
+			cleanedDates[i] = strings.TrimPrefix(date, "*")
+		}
+		_, _ = fmt.Fprintf(w, `<dt>%s</dt><dd>%s</dd>`, html.EscapeString(location), html.EscapeString(strings.Join(cleanedDates, ", ")))
 	}
 	_, _ = fmt.Fprint(w, `</dl></section>`)
 }
