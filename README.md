@@ -74,8 +74,22 @@ go build -o groupie-tracker .
 PORT=8080 ./groupie-tracker
 ```
 
-A specific host (e.g. Fly.io, Render, Railway) has not been chosen yet; when
-the site is deployed, record the public URL here.
+### Hosting on Render (free)
+
+The repository includes a small multi-stage `Dockerfile`. To deploy:
+
+1. Push the repository to a GitHub repo Render can read.
+2. Render dashboard → **New + → Web Service** → connect the repo.
+3. Render auto-detects the `Dockerfile`; pick the **Free** instance type and set
+   **Health Check Path** to `/healthz`.
+4. Render injects `PORT`, which the app already reads, so no extra config is
+   needed.
+
+The free tier sleeps after ~15 minutes idle (a ~40s cold start on the next
+hit); a scheduled ping to `/healthz` (e.g. cron-job.org every 10 minutes) keeps
+it warm.
+
+**Live URL:** _not deployed yet — record the `https://<app>.onrender.com` URL here._
 
 ## Audit notes
 
