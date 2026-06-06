@@ -60,7 +60,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	artists := s.catalog.Artists()
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script></head><body><main><h1>Groupie Tracker</h1><form id="searchForm" action="/api/search" method="get"><label for="q">Search artists</label><input id="q" name="q" type="search"><button type="submit">Search</button></form><section><h2>Artists</h2>`)
+	_, _ = fmt.Fprint(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg"></dotlottie-player><main><h1>Groupie Tracker</h1><form id="searchForm" action="/api/search" method="get"><label for="q">Search artists</label><input id="q" name="q" type="search"><button type="submit">Search</button></form><section><h2>Artists</h2>`)
 	if len(artists) == 0 {
 		_, _ = fmt.Fprint(w, `<p class="empty-state">No artists available at this time.</p>`)
 	} else {
@@ -94,7 +94,7 @@ func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s - Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"></head><body><main><a class="back-button" href="/">&larr; Back to catalog</a><article><h1>%s</h1><img src="%s" alt="%s"><dl><dt>Creation date</dt><dd>%d</dd><dt>First album</dt><dd>%s</dd></dl>`, html.EscapeString(artist.Name), html.EscapeString(artist.Name), html.EscapeString(artist.Image), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
+	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s - Groupie Tracker</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg"></dotlottie-player><main><a class="back-button" href="/">&larr; Back to catalog</a><article><h1>%s</h1><img src="%s" alt="%s"><dl><dt>Creation date</dt><dd>%d</dd><dt>First album</dt><dd>%s</dd></dl>`, html.EscapeString(artist.Name), html.EscapeString(artist.Name), html.EscapeString(artist.Image), html.EscapeString(artist.Name), artist.CreationDate, html.EscapeString(artist.FirstAlbum))
 	writeStringList(w, "Members", artist.Members)
 	writeStringList(w, "Locations", artist.Locations)
 	writeStringList(w, "Dates", artist.Dates)

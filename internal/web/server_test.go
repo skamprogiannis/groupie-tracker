@@ -148,6 +148,13 @@ func TestHomeIncludesSearchScript(t *testing.T) {
 	assertBodyContains(t, rec, "<script src=\"/static/site.js\"")
 }
 
+func TestArtistIncludesSearchScript(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/artist/1", newFakeCatalog())
+
+	assertStatus(t, rec, http.StatusOK)
+	assertBodyContains(t, rec, "<script src=\"/static/site.js\"")
+}
+
 func TestSearchEmptyAndNoMatch(t *testing.T) {
 	// no-match
 	rec := serveTestRequest(http.MethodGet, "/api/search?q=__no_such_artist__", newFakeCatalog())
