@@ -1,12 +1,12 @@
 package groupie
 
 type ArtistSummary struct {
-	ID             int
-	Name           string
-	Image          string
-	CreationDate   int
-	FirstAlbum     string
-	MemberSummary  string
+	ID            int
+	Name          string
+	Image         string
+	CreationDate  int
+	FirstAlbum    string
+	MemberSummary string
 }
 
 type ArtistDetail struct {
@@ -22,11 +22,12 @@ type ArtistDetail struct {
 }
 
 type SearchResult struct {
-	ID           int    `json:"id"`
-	Name         string `json:"name"`
-	Image        string `json:"image"`
-	CreationDate int    `json:"creationDate"`
-	FirstAlbum   string `json:"firstAlbum"`
+	ID            int    `json:"id"`
+	Name          string `json:"name"`
+	Image         string `json:"image"`
+	CreationDate  int    `json:"creationDate"`
+	FirstAlbum    string `json:"firstAlbum"`
+	MatchedDetail string `json:"matchedDetail"`
 }
 
 type Catalog struct {

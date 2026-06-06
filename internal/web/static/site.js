@@ -1,6 +1,7 @@
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('searchForm');
     const input = document.getElementById('q');
+    const dropdown = document.getElementById('dropdown');
     const catalog = document.querySelector('.catalog');
 
     function escapeHtml(s) {
@@ -11,7 +12,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function renderResults(results) {
         if (!catalog) return;
-        // remove any existing empty-state message
         const existing = catalog.parentNode.querySelector('.empty-state');
         if (existing) existing.remove();
 
@@ -29,7 +29,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }).join('');
     }
 
-    // Format location strings: replace underscores/hyphens with spaces and Title Case each word
     function formatLocation(raw) {
         if (!raw) return raw;
         const cleaned = raw.replace(/[_-]+/g, ' ');
@@ -40,7 +39,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function formatExistingLocationsAndRelations() {
-        // Locations lists
         document.querySelectorAll('section').forEach(function (sec) {
             const h2 = sec.querySelector('h2');
             if (!h2) return;
@@ -58,74 +56,65 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Autocomplete UI
-    function createAutocomplete(formEl, inputEl) {
-        const list = document.createElement('div');
-        list.className = 'autocomplete-list';
-        list.style.display = 'none';
-        formEl.appendChild(list);
-
-        function show(items) {
-            if (!items || items.length === 0) { list.style.display = 'none'; list.innerHTML = ''; return; }
-            list.innerHTML = items.map(function (it) {
-                return `<div class="autocomplete-item" data-id="${it.id}">${escapeHtml(it.name)} <small style="color:#64748b; margin-left:8px;">${it.creationDate}</small></div>`;
-            }).join('');
-            list.style.display = 'block';
-        }
-
-        list.addEventListener('click', function (ev) {
-            const item = ev.target.closest('.autocomplete-item');
-            if (!item) return;
-            const id = item.getAttribute('data-id');
-            if (id) {
-                window.location.href = '/artist/' + id;
+    if (input && dropdown) {
+        let debounceTimer = null;
+        input.addEventListener('input', function () {
+            const q = input.value || '';
+            if (q.length < 1) {
+                dropdown.style.display = 'none';
+                return;
             }
+
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(async function () {
+                try {
+                    const res = await fetch('/api/search?q=' + encodeURIComponent(q));
+                    const data = await res.json();
+                    const results = data.results || [];
+
+                    dropdown.innerHTML = '';
+                    if (results.length > 0) {
+                        results.forEach(artist => {
+                            const item = document.createElement('div');
+                            item.className = 'autocomplete-item';
+
+                            // Updated display logic to include MatchedDetail
+                            const name = (artist.name || artist.Name);
+                            const match = (artist.matchedDetail || "");
+                            item.textContent = match ? `${name} - ${match}` : name;
+
+                            item.onclick = () => {
+                                window.location.href = '/artist/' + (artist.ID || artist.id);
+                            };
+                            dropdown.appendChild(item);
+                        });
+                        dropdown.style.display = 'block';
+                    } else {
+                        dropdown.style.display = 'none';
+                    }
+                } catch (err) {
+                    dropdown.style.display = 'none';
+                }
+            }, 150);
         });
 
         document.addEventListener('click', function (ev) {
-            if (!formEl.contains(ev.target)) {
-                list.style.display = 'none';
+            if (!form.contains(ev.target)) {
+                dropdown.style.display = 'none';
             }
         });
-
-        return { show };
     }
 
-    if (!form || !input) {
-        // still format locations if on artist page
-        formatExistingLocationsAndRelations();
-        return;
-    }
-
-    const autocomplete = createAutocomplete(form, input);
-
-    let debounceTimer = null;
-    input.addEventListener('input', function () {
-        const q = input.value || '';
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(function () {
+    if (form) {
+        form.addEventListener('submit', function (ev) {
+            ev.preventDefault();
+            const q = input.value || '';
             fetch('/api/search?q=' + encodeURIComponent(q))
-                .then(function (res) { return res.json(); })
-                .then(function (data) {
-                    autocomplete.show((data.results || []).slice(0, 8));
-                })
-                .catch(function () { autocomplete.show([]); });
-        }, 150);
-    });
+                .then(res => res.json())
+                .then(data => renderResults(data.results))
+                .catch(() => { });
+        });
+    }
 
-    form.addEventListener('submit', function (ev) {
-        ev.preventDefault();
-        const q = input.value || '';
-        fetch('/api/search?q=' + encodeURIComponent(q))
-            .then(function (res) { return res.json(); })
-            .then(function (data) {
-                renderResults(data.results);
-            })
-            .catch(function () {
-                // noop: keep UI stable on error
-            });
-    });
-
-    // Format any locations/relations already present on the page (artist detail page)
     formatExistingLocationsAndRelations();
 });

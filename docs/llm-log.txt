@@ -43,3 +43,11 @@ Entries:
    - Action: Implemented the Groupie API client, normalized in-memory catalog, catalog search, HTTP routing, basic HTML/JSON/static responses, shared 404/500/method/panic handling, startup wiring, tests, and README route updates.
    - Copied/Edited: Issue titles and acceptance criteria were provided by the user and adapted into implementation steps; all code and README/log edits were newly written.
    - Affected: issues #2, #3, #4; main.go, main_test.go, README.md, docs/llm-log.txt, internal/groupie/*, internal/web/*.
+
+4. Task: Enhance search results with contextual details
+   - Date: 2026-06-06
+   - Agent/Model: GitHub Copilot (Claude Haiku 4.5)
+   - Asked: Implement contextual result labels in search to show matched data (member names, locations, etc.) alongside artist names in autocomplete, and add a matchedDetail field to backend search response.
+   - Action: Added MatchedDetail field to SearchResult struct in catalog_models.go; created new artistMatchesWithDetail() function in search.go that tracks what was matched (member, location, date, or album); implemented formatLocationDetail() helper to format location strings; frontend already had display logic prepared to show "Artist Name - Matched Detail" format.
+   - Copied/Edited: All implementation was newly written based on user requirements; user requested the two-part change (backend field + frontend display); frontend code was pre-existing and only needed the backend to support it.
+   - Affected: internal/groupie/search.go, internal/groupie/catalog_models.go; verified with go test ./... and manual testing of search API; no changes needed to frontend or other files.
