@@ -1,5 +1,7 @@
 # Groupie Tracker
 
+**Live site: https://groupietracker-wunu.onrender.com/**
+
 Groupie Tracker is a Zone01 Go web project that will fetch the public Groupie Tracker API and display artist, member, album, location, date, and relation data in a user-friendly website.
 
 The current implementation includes the data and server foundation: API fetching, normalized in-memory catalog data, basic route rendering, search JSON, static assets, health checks, and shared error handling.
@@ -89,7 +91,7 @@ The free tier sleeps after ~15 minutes idle (a ~40s cold start on the next
 hit); a scheduled ping to `/healthz` (e.g. cron-job.org every 10 minutes) keeps
 it warm.
 
-**Live URL:** _not deployed yet — record the `https://<app>.onrender.com` URL here._
+**Live URL:** https://groupietracker-wunu.onrender.com/ (health check: https://groupietracker-wunu.onrender.com/healthz)
 
 ## Audit notes
 
