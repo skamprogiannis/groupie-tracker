@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"groupie-tracker/internal/geo"
 	"groupie-tracker/internal/groupie"
 )
 
@@ -115,6 +116,42 @@ func TestSearchReturnsJSON(t *testing.T) {
 	}
 }
 
+func TestGeoEndpointReturnsLocatedConcerts(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/api/geo?id=1", newFakeCatalog())
+
+	assertStatus(t, rec, http.StatusOK)
+	if contentType := rec.Header().Get("Content-Type"); !strings.Contains(contentType, "application/json") {
+		t.Fatalf("Content-Type = %q, want JSON", contentType)
+	}
+
+	var resp geoResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode geo response: %v", err)
+	}
+	if resp.Artist != "Queen" {
+		t.Fatalf("artist = %q, want Queen", resp.Artist)
+	}
+	if len(resp.Points) != 1 {
+		t.Fatalf("points = %d, want 1", len(resp.Points))
+	}
+	if resp.Points[0].Lat != 51.5 || resp.Points[0].Lon != -0.12 {
+		t.Fatalf("point = %#v, want lat 51.5 lon -0.12", resp.Points[0])
+	}
+	if !strings.Contains(resp.Points[0].Location, "London") {
+		t.Fatalf("location label = %q, want it to contain London", resp.Points[0].Location)
+	}
+}
+
+func TestGeoEndpointMissingArtistReturns404(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/api/geo?id=999", newFakeCatalog())
+	assertStatus(t, rec, http.StatusNotFound)
+}
+
+func TestGeoEndpointInvalidIDReturns404(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/api/geo?id=not-a-number", newFakeCatalog())
+	assertStatus(t, rec, http.StatusNotFound)
+}
+
 func TestHealthzReturnsOK(t *testing.T) {
 	rec := serveTestRequest(http.MethodGet, "/healthz", newFakeCatalog())
 
@@ -210,7 +247,8 @@ func serveTestRequest(method string, path string, catalog Catalog) *httptest.Res
 	req := httptest.NewRequest(method, path, nil)
 	rec := httptest.NewRecorder()
 	searcher, _ := catalog.(Searcher)
-	New(catalog, searcher).Handler().ServeHTTP(rec, req)
+	locator, _ := catalog.(Locator)
+	New(catalog, searcher, locator).Handler().ServeHTTP(rec, req)
 	return rec
 }
 
@@ -254,6 +292,13 @@ func (c *fakeCatalog) Artists() []groupie.ArtistSummary {
 
 func (c *fakeCatalog) Facets() groupie.FilterOptions {
 	return groupie.FilterOptions{MinYear: 1970, MaxYear: 1970, MinMembers: 2, MaxMembers: 2, Countries: []string{"uk"}}
+}
+
+func (c *fakeCatalog) Locate(_ context.Context, slug string) (geo.Coord, bool) {
+	if slug == "london-uk" {
+		return geo.Coord{Lat: 51.5, Lon: -0.12}, true
+	}
+	return geo.Coord{}, false
 }
 
 func (c *fakeCatalog) ArtistByID(id int) (groupie.ArtistDetail, bool) {

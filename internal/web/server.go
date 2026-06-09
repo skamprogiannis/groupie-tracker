@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"groupie-tracker/internal/geo"
 	"groupie-tracker/internal/groupie"
 )
 
@@ -37,16 +38,24 @@ type Searcher interface {
 	Search(ctx context.Context, query groupie.SearchQuery) ([]groupie.SearchResult, error)
 }
 
+// Locator resolves a "city-country" concert location slug into coordinates for
+// the geolocalization map. ok is false when the location cannot be geocoded.
+type Locator interface {
+	Locate(ctx context.Context, slug string) (geo.Coord, bool)
+}
+
 type Server struct {
 	catalog       Catalog
 	searcher      Searcher
+	locator       Locator
 	staticHandler http.Handler
 }
 
-func New(catalog Catalog, searcher Searcher) *Server {
+func New(catalog Catalog, searcher Searcher, locator Locator) *Server {
 	return &Server{
 		catalog:       catalog,
 		searcher:      searcher,
+		locator:       locator,
 		staticHandler: newStaticHandler(),
 	}
 }
@@ -56,6 +65,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/", s.home)
 	mux.HandleFunc("/artist/", s.artist)
 	mux.HandleFunc("/api/search", s.search)
+	mux.HandleFunc("/api/geo", s.geo)
 	mux.HandleFunc("/healthz", s.healthz)
 	mux.Handle("/static/", http.StripPrefix("/static/", s.staticHandler))
 	return s.recoverPanic(mux)
@@ -82,7 +92,7 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	writeHead(w, "Groupie Tracker")
+	writeHead(w, "Groupie Tracker", "")
 	fmt.Fprintf(w, `<header class="page-header"><h1>Groupie Tracker</h1><p class="page-subtitle">%s</p></header>`, html.EscapeString(datasetSummary(len(artists), facets)))
 
 	fmt.Fprint(w, `<form id="searchForm" action="/api/search" method="get" role="search"><div id="search-container"><input id="q" name="q" type="search" placeholder="Search artists..." aria-label="Search artists" role="combobox" aria-expanded="false" aria-controls="dropdown" aria-autocomplete="list" autocomplete="off"><div id="dropdown" class="autocomplete-list" role="listbox" aria-label="Artist search results"></div></div><button type="submit">Search</button></form>`)
@@ -119,7 +129,7 @@ func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	writeHead(w, artist.Name+" - Groupie Tracker")
+	writeHead(w, artist.Name+" - Groupie Tracker", leafletHead)
 	fmt.Fprint(w, `<a class="back-button" href="/">&larr; Back to catalog</a>`)
 
 	fmt.Fprintf(w, `<article class="artist"><header class="artist__header"><img class="artist__image" src="%s" alt="%s"><div class="artist__intro"><h1>%s</h1><dl class="facts">`,
@@ -131,6 +141,7 @@ func (s *Server) artist(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, `</dl></div></header>`)
 
 	writeMembers(w, artist.Members)
+	writeMap(w, artist)
 	writeConcerts(w, artist.Locations, artist.DatesLocations)
 
 	fmt.Fprint(w, `</article>`)
@@ -185,6 +196,103 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 		Count:   len(results),
 		Results: results,
 	})
+}
+
+// geoTimeout bounds a single /api/geo request. With the seeded cache nearly
+// every location resolves instantly; the budget covers the rare live geocode.
+const geoTimeout = 15 * time.Second
+
+type geoPoint struct {
+	Location string    `json:"location"`
+	Slug     string    `json:"slug"`
+	Lat      float64   `json:"lat"`
+	Lon      float64   `json:"lon"`
+	Dates    []string  `json:"dates"`
+	earliest time.Time // used only for date ordering; not serialized
+}
+
+type geoResponse struct {
+	Artist string     `json:"artist"`
+	Points []geoPoint `json:"points"`
+}
+
+// geo returns an artist's concert locations as map points, ordered by concert
+// date so the client can draw the tour path. This is the geolocalization
+// client-server event.
+func (s *Server) geo(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Path != "/api/geo" {
+		s.notFound(w, r)
+		return
+	}
+	if !s.allowOnlyGet(w, r) {
+		return
+	}
+	if s.catalog == nil || s.locator == nil {
+		s.internalServerError(w, r)
+		return
+	}
+
+	id, err := strconv.Atoi(strings.TrimSpace(r.URL.Query().Get("id")))
+	if err != nil || id <= 0 {
+		s.notFound(w, r)
+		return
+	}
+	artist, found := s.catalog.ArtistByID(id)
+	if !found {
+		s.notFound(w, r)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), geoTimeout)
+	defer cancel()
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	_ = json.NewEncoder(w).Encode(geoResponse{
+		Artist: artist.Name,
+		Points: s.locateConcerts(ctx, artist),
+	})
+}
+
+func (s *Server) locateConcerts(ctx context.Context, artist groupie.ArtistDetail) []geoPoint {
+	points := make([]geoPoint, 0, len(artist.Locations))
+	for _, slug := range artist.Locations {
+		coord, ok := s.locator.Locate(ctx, slug)
+		if !ok {
+			continue
+		}
+		dates := cleanDates(artist.DatesLocations[slug])
+		points = append(points, geoPoint{
+			Location: groupie.FormatLocation(slug),
+			Slug:     slug,
+			Lat:      coord.Lat,
+			Lon:      coord.Lon,
+			Dates:    dates,
+			earliest: earliestDate(dates),
+		})
+	}
+	sort.SliceStable(points, func(i, j int) bool {
+		return points[i].earliest.Before(points[j].earliest)
+	})
+	return points
+}
+
+// earliestDate returns the earliest parseable "DD-MM-YYYY" date, or a far-future
+// time so undated locations sort last.
+func earliestDate(dates []string) time.Time {
+	earliest := time.Time{}
+	for _, d := range dates {
+		t, err := time.Parse("02-01-2006", strings.TrimSpace(d))
+		if err != nil {
+			continue
+		}
+		if earliest.IsZero() || t.Before(earliest) {
+			earliest = t
+		}
+	}
+	if earliest.IsZero() {
+		return time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC)
+	}
+	return earliest
 }
 
 func (s *Server) healthz(w http.ResponseWriter, r *http.Request) {
@@ -252,10 +360,15 @@ func (s *Server) errorPage(w http.ResponseWriter, status int, title string, mess
 	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s</title><link rel="stylesheet" href="/static/site.css"></head><body><main><h1>%s</h1><p>%s</p><p><a href="/">Back to catalog</a></p></main></body></html>`, html.EscapeString(title), html.EscapeString(title), html.EscapeString(message))
 }
 
+// leafletHead loads the Leaflet map library and styles. It is injected only on
+// pages that render a map. Leaflet is deferred so it executes before site.js.
+const leafletHead = `<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"><script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>`
+
 // writeHead writes the shared document head, decorative background, and opening
-// <main> tag. Every full page uses it so the chrome stays in one place.
-func writeHead(w http.ResponseWriter, title string) {
-	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s</title><link rel="stylesheet" href="/static/site.css"><script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg" aria-hidden="true"></dotlottie-player><div class="bg-veil" aria-hidden="true"></div><main>`, html.EscapeString(title))
+// <main> tag. extraHead injects page-specific <head> markup (e.g. the map
+// library) and is trusted server-controlled content.
+func writeHead(w http.ResponseWriter, title, extraHead string) {
+	_, _ = fmt.Fprintf(w, `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>%s</title><link rel="stylesheet" href="/static/site.css">%s<script src="/static/site.js" defer></script><script src="https://unpkg.com/@dotlottie/player-component@2.7.1/dist/dotlottie-player.mjs" type="module"></script></head><body><dotlottie-player src="/static/background-globe-rotating.lottie" background="transparent" speed="1" loop autoplay class="animated-bg" aria-hidden="true"></dotlottie-player><div class="bg-veil" aria-hidden="true"></div><main>`, html.EscapeString(title), extraHead)
 }
 
 func writeFoot(w http.ResponseWriter) {
@@ -303,6 +416,17 @@ func writeMembers(w http.ResponseWriter, members []string) {
 		_, _ = fmt.Fprintf(w, `<li class="chip">%s</li>`, html.EscapeString(member))
 	}
 	_, _ = fmt.Fprint(w, `</ul></section>`)
+}
+
+// writeMap renders the geolocalization map container. site.js fills it with
+// Leaflet markers fetched from /api/geo?id=<id>, drawing the tour path in date
+// order. Empty locations are skipped so the map only shows when there is data.
+func writeMap(w http.ResponseWriter, artist groupie.ArtistDetail) {
+	if len(artist.Locations) == 0 {
+		return
+	}
+	_, _ = fmt.Fprintf(w, `<section class="panel"><h2>Concert map</h2><div id="concert-map" class="concert-map" data-artist-id="%d" aria-label="Map of %s concert locations"></div><p class="map-note muted">Each marker is a geocoded concert location; the dashed line follows the tour in date order.</p></section>`,
+		artist.ID, html.EscapeString(artist.Name))
 }
 
 // writeConcerts renders one entry per location (so every location stays

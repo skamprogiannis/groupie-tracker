@@ -32,6 +32,7 @@ The project uses only Go standard library packages.
 - `/` - catalog home page with search, filters, and sorting
 - `/artist/{id}` - artist detail page
 - `/api/search?q=...` - JSON search endpoint (also accepts `sort`, `minYear`, `maxYear`, `minMembers`, `maxMembers`, `country`)
+- `/api/geo?id=...` - JSON concert coordinates for the geolocalization map
 - `/healthz` - health check
 - `/static/*` - embedded static assets
 
@@ -47,6 +48,26 @@ Filtering and sorting are applied server-side (in `internal/groupie`), so the
 logic is one tested source of truth: free-text match, creation-year range,
 member-count range, concert country, and sort by name, newest, oldest, or member
 count.
+
+## Geolocalization (map)
+
+Each artist page shows a map of that band's concerts (the Groupie Tracker
+Geolocalization project):
+
+- `internal/geo` geocodes each `city-country` location into coordinates using
+  the OpenStreetMap **Nominatim** service over `net/http` (standard library
+  only). Results are cached in memory so each place is geocoded at most once,
+  and a committed seed cache (`internal/geo/seed.json`, embedded) means the
+  deployed app resolves the known locations instantly without live calls.
+- The browser requests `GET /api/geo?id=<artist>`, which returns the located
+  concerts **ordered by concert date**.
+- A **Leaflet + OpenStreetMap** map (loaded from a CDN) drops a marker per
+  concert, with a popup of the place and dates, and connects them with a dashed
+  **date-ordered path** to trace the tour.
+
+As with any map project, the map tiles, the Leaflet library, and the geocoding
+service run in the browser / over HTTP; the Go backend itself uses only the
+standard library.
 
 On the server the query is handled asynchronously:
 

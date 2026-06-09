@@ -18,21 +18,27 @@ graph TD
 
 ## 3. Packages
 
-- `main`: process setup, API load, worker lifecycle, HTTP server startup, graceful shutdown.
+- `main`: process setup, API load, worker lifecycle, geo service wiring, HTTP server startup, graceful shutdown.
 - `internal/groupie`: API structs, HTTP client, catalog join logic, search matching, async search worker.
-- `internal/web`: HTTP routing, templates, embedded static assets, HTML pages, JSON endpoint, error handling.
+- `internal/geo`: geocoding (Nominatim client over net/http) plus a caching, rate-limited service with an embedded seed cache.
+- `internal/web`: HTTP routing, embedded static assets, HTML pages, JSON endpoints, error handling.
 
 ## 4. Routes
 
 - `GET /`: home page with artist catalog, search form, and filter/sort toolbar.
-- `GET /artist/{id}`: artist detail page (facts header, member chips, concerts).
+- `GET /artist/{id}`: artist detail page (facts header, member chips, concert map, concerts list).
 - `GET /api/search`: client-server event endpoint returning JSON. Accepts `q` plus `sort`, `minYear`, `maxYear`, `minMembers`, `maxMembers`, and `country`.
+- `GET /api/geo?id=`: geolocalization endpoint returning an artist's concerts as date-ordered map points.
 - `GET /healthz`: health check for deployment.
 - `/static/*`: embedded CSS and JavaScript assets.
 
 ## 5. Async Event Design
 
 Search, filter, and sort requests enter `GET /api/search`, which parses the query parameters into a `SearchQuery`, creates a timeout-bound context, and sends it to `SearchWorker`. The worker runs in a goroutine and communicates through channels. It filters and sorts the immutable in-memory catalog and replies through a per-request response channel. The browser uses one response to update both the autocomplete dropdown and the catalog grid. Closing the worker shuts down the goroutine safely.
+
+## 5b. Geolocalization Design
+
+The artist page requests `GET /api/geo?id=`. The handler looks up the artist, then resolves each `city-country` location to coordinates through `internal/geo`. The geo service caches every result (and failures), serializes and rate-limits live geocoding calls to respect Nominatim's policy, and is warmed at startup by an embedded seed cache (`seed.json`) so known locations resolve without a network call. Concerts are returned ordered by their earliest date. In the browser, Leaflet renders one marker per concert and a dashed polyline through them in date order to trace the tour path.
 
 ## 6. Error Handling
 

@@ -18,6 +18,7 @@ Build a Go website that consumes the Groupie Tracker API and presents artist inf
 - Keep the server reliable: no crashes, friendly errors, and tested behavior.
 - Include bonus async behavior using goroutines and channels.
 - Prepare for deployment through `PORT` and `/healthz`.
+- Map each artist's concert locations with geocoded coordinates (Geolocalization extension).
 
 ## 4. Functional Requirements
 
@@ -27,6 +28,7 @@ Build a Go website that consumes the Groupie Tracker API and presents artist inf
 - Render `/artist/{id}` pages for individual artists.
 - Provide `GET /api/search?q=...` returning JSON results.
 - Update the catalog page with search results without a full page reload.
+- Geocode concert locations and expose `GET /api/geo?id=...` for the map.
 - Serve static CSS and JavaScript through the Go server.
 - Return 404 for unknown routes and invalid artist IDs.
 - Return 500 for internal failures without crashing.
@@ -55,7 +57,7 @@ Build a Go website that consumes the Groupie Tracker API and presents artist inf
 - User accounts.
 - Persistent database storage.
 - Non-standard Go routers or frontend frameworks.
-- Complex maps or charting libraries.
+- Charting or analytics dashboards. (The Geolocalization extension adds a concert map via a standard browser map library, which is in scope.)
 
 ## 8. Milestones
 

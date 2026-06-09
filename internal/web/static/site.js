@@ -226,4 +226,51 @@ document.addEventListener('DOMContentLoaded', function () {
             closeDropdown();
         }
     });
+
+    /* ----- geolocalization map (artist pages) ----- */
+    const mapEl = document.getElementById('concert-map');
+    if (mapEl && window.L) {
+        initConcertMap(mapEl);
+    }
+
+    function initConcertMap(el) {
+        const id = el.dataset.artistId;
+        // Point Leaflet at the CDN marker images so pins render reliably.
+        L.Icon.Default.imagePath = 'https://unpkg.com/leaflet@1.9.4/dist/images/';
+        const map = L.map(el, { scrollWheelZoom: false }).setView([20, 0], 2);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
+            maxZoom: 19
+        }).addTo(map);
+
+        function showNote(text) {
+            el.setAttribute('data-note', text);
+            el.classList.add('concert-map--note');
+        }
+
+        fetch('/api/geo?id=' + encodeURIComponent(id))
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                const points = (data && data.points) || [];
+                if (points.length === 0) {
+                    showNote('No mapped concert locations for this artist.');
+                    return;
+                }
+                const latlngs = [];
+                points.forEach(function (p) {
+                    const marker = L.marker([p.lat, p.lon]).addTo(map);
+                    const dates = (p.dates && p.dates.length) ? '<br>' + escapeHtml(p.dates.join(', ')) : '';
+                    marker.bindPopup('<strong>' + escapeHtml(p.location) + '</strong>' + dates);
+                    latlngs.push([p.lat, p.lon]);
+                });
+                // Connect the concerts in date order to trace the tour path.
+                if (latlngs.length > 1) {
+                    L.polyline(latlngs, { color: '#a855f7', weight: 2, opacity: 0.75, dashArray: '6 8' }).addTo(map);
+                }
+                map.fitBounds(latlngs, { padding: [30, 30], maxZoom: 6 });
+            })
+            .catch(function () {
+                showNote('Could not load the concert map.');
+            });
+    }
 });

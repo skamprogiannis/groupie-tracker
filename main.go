@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"groupie-tracker/internal/geo"
 	"groupie-tracker/internal/groupie"
 	"groupie-tracker/internal/web"
 )
@@ -40,9 +41,16 @@ func main() {
 		searcher = worker
 	}
 
+	// The geolocalization service geocodes concert locations on demand, warmed
+	// by the committed seed cache so known places resolve without a network call.
+	locator := geo.NewService(geo.NewNominatimGeocoder())
+	if err := locator.SeedJSON(geo.SeedData()); err != nil {
+		log.Printf("could not load geocode seed cache: %v", err)
+	}
+
 	server := &http.Server{
 		Addr:              ":" + port,
-		Handler:           routes(catalog, searcher),
+		Handler:           routes(catalog, searcher, locator),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
@@ -81,6 +89,6 @@ func loadCatalog(ctx context.Context) (*groupie.Catalog, error) {
 	return groupie.NewCatalog(data)
 }
 
-func routes(catalog web.Catalog, searcher web.Searcher) http.Handler {
-	return web.New(catalog, searcher).Handler()
+func routes(catalog web.Catalog, searcher web.Searcher, locator web.Locator) http.Handler {
+	return web.New(catalog, searcher, locator).Handler()
 }

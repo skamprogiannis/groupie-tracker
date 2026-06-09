@@ -576,6 +576,39 @@ form#searchForm button:active {
 	font-weight: 400;
 }
 
+.concert-map {
+	height: 380px;
+	width: 100%;
+	border-radius: 12px;
+	overflow: hidden;
+	background: var(--surface-strong);
+	z-index: 0;
+}
+
+.concert-map--note {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.concert-map--note::after {
+	content: attr(data-note);
+	color: var(--text-dim);
+	font-size: 0.9rem;
+	text-align: center;
+	padding: 16px;
+}
+
+.map-note {
+	margin: 10px 0 0;
+	font-size: 0.85rem;
+}
+
+/* Keep Leaflet popups readable on the dark theme. */
+.leaflet-popup-content {
+	font: inherit;
+}
+
 
 /* ========================================
    FORM CONTROLS & ACCESSIBILITY
