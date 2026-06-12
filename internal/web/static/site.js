@@ -211,6 +211,18 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    // Quick-filter the long concert-location checkbox list as the user types.
+    const locSearch = document.getElementById('loc-search');
+    if (locSearch && filterBar) {
+        locSearch.addEventListener('input', function () {
+            const q = locSearch.value.toLowerCase().trim();
+            filterBar.querySelectorAll('.loc-option').forEach(function (opt) {
+                const match = !q || opt.textContent.toLowerCase().indexOf(q) !== -1;
+                opt.style.display = match ? '' : 'none';
+            });
+        });
+    }
+
     if (filterBar) {
         filterBar.addEventListener('change', function () { scheduleSearch(false); });
         filterBar.addEventListener('input', function (ev) {

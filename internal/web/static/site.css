@@ -311,6 +311,10 @@ form#searchForm button:active {
 	color: var(--text-dim);
 }
 
+.location-search {
+	margin: 8px 0 10px;
+}
+
 .location-list {
 	display: grid;
 	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));

@@ -418,7 +418,7 @@ func writeLocationFilter(w http.ResponseWriter, locations []string) {
 	if len(locations) == 0 {
 		return
 	}
-	_, _ = fmt.Fprintf(w, `<fieldset class="filter filter--locations"><legend>Concert locations (%d)</legend><div class="location-list">`, len(locations))
+	_, _ = fmt.Fprintf(w, `<fieldset class="filter filter--locations"><legend>Concert locations (%d)</legend><input type="search" id="loc-search" class="location-search" placeholder="Type to find a location, e.g. japan" aria-label="Filter the location list"><div class="location-list">`, len(locations))
 	for _, slug := range locations {
 		_, _ = fmt.Fprintf(w, `<label class="loc-option"><input type="checkbox" name="location" value="%s"><span>%s</span></label>`,
 			html.EscapeString(slug), html.EscapeString(groupie.FormatLocation(slug)))
