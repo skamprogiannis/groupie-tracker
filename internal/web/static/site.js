@@ -42,11 +42,14 @@ document.addEventListener('DOMContentLoaded', function () {
             params.set('q', q);
         }
         if (filterBar) {
-            ['sort', 'minYear', 'maxYear', 'minMembers', 'maxMembers', 'country'].forEach(function (name) {
+            ['sort', 'minYear', 'maxYear', 'minAlbumYear', 'maxAlbumYear', 'minMembers', 'maxMembers', 'country'].forEach(function (name) {
                 const el = filterBar.elements[name];
                 if (el && el.value) {
                     params.set(name, el.value);
                 }
+            });
+            filterBar.querySelectorAll('input[name="location"]:checked').forEach(function (cb) {
+                params.append('location', cb.value);
             });
         }
         return params;

@@ -151,6 +151,15 @@ func TestCatalogFilters(t *testing.T) {
 	byCountry := catalog.Search(SearchQuery{Country: "finland"})
 	assertResultNames(t, byCountry, []string{"Travis Scott"})
 
+	// First-album-year range 1994-2001: Foo Fighters (1995) and Gorillaz (2001);
+	// Queen (1973) and Travis Scott (2015) fall outside.
+	byAlbum := catalog.Search(SearchQuery{MinAlbumYear: 1994, MaxAlbumYear: 2001})
+	assertResultNames(t, byAlbum, []string{"Foo Fighters", "Gorillaz"})
+
+	// Location checkbox: artists who played turku-finland or london-uk.
+	byLocation := catalog.Search(SearchQuery{Locations: []string{"turku-finland", "london-uk"}})
+	assertResultNames(t, byLocation, []string{"Queen", "Travis Scott"})
+
 	// Filters compose with text search.
 	none := catalog.Search(SearchQuery{Text: "queen", MinYear: 2000})
 	if len(none) != 0 {
@@ -167,6 +176,12 @@ func TestCatalogFacets(t *testing.T) {
 	}
 	if facets.MaxMembers != 7 {
 		t.Fatalf("MaxMembers = %d, want 7", facets.MaxMembers)
+	}
+	if facets.MinAlbumYear != 1973 || facets.MaxAlbumYear != 2015 {
+		t.Fatalf("album year range = %d-%d, want 1973-2015", facets.MinAlbumYear, facets.MaxAlbumYear)
+	}
+	if !containsString(facets.Locations, "london-uk") || !containsString(facets.Locations, "turku-finland") {
+		t.Fatalf("locations = %#v, want london-uk and turku-finland present", facets.Locations)
 	}
 	if !containsString(facets.Countries, "finland") || !containsString(facets.Countries, "usa") {
 		t.Fatalf("countries = %#v, want finland and usa", facets.Countries)

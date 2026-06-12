@@ -163,13 +163,16 @@ func (s *Server) search(w http.ResponseWriter, r *http.Request) {
 
 	params := r.URL.Query()
 	query := groupie.SearchQuery{
-		Text:       params.Get("q"),
-		MinYear:    atoiOrZero(params.Get("minYear")),
-		MaxYear:    atoiOrZero(params.Get("maxYear")),
-		MinMembers: atoiOrZero(params.Get("minMembers")),
-		MaxMembers: atoiOrZero(params.Get("maxMembers")),
-		Country:    params.Get("country"),
-		Sort:       params.Get("sort"),
+		Text:         params.Get("q"),
+		MinYear:      atoiOrZero(params.Get("minYear")),
+		MaxYear:      atoiOrZero(params.Get("maxYear")),
+		MinAlbumYear: atoiOrZero(params.Get("minAlbumYear")),
+		MaxAlbumYear: atoiOrZero(params.Get("maxAlbumYear")),
+		MinMembers:   atoiOrZero(params.Get("minMembers")),
+		MaxMembers:   atoiOrZero(params.Get("maxMembers")),
+		Country:      params.Get("country"),
+		Locations:    params["location"],
+		Sort:         params.Get("sort"),
 	}
 
 	// Hand the query to the async worker with a bounded context. The worker
@@ -383,17 +386,44 @@ func writeControls(w http.ResponseWriter, facets groupie.FilterOptions) {
 	_, _ = fmt.Fprint(w, `<button type="button" id="filterToggle" class="filter-toggle" aria-expanded="false" aria-controls="filterBar">Filters &amp; sort</button>`)
 	_, _ = fmt.Fprint(w, `<form id="filterBar" class="filters" aria-label="Filter and sort artists"><div class="filter"><label for="f-sort">Sort</label><select id="f-sort" name="sort"><option value="name">Name A–Z</option><option value="newest">Newest first</option><option value="oldest">Oldest first</option><option value="members">Most members</option></select></div>`)
 
-	_, _ = fmt.Fprintf(w, `<div class="filter"><label for="f-min-year">From year</label><input id="f-min-year" name="minYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div><div class="filter"><label for="f-max-year">To year</label><input id="f-max-year" name="maxYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div>`,
+	// Creation-date range filter.
+	_, _ = fmt.Fprintf(w, `<div class="filter"><label for="f-min-year">Created from</label><input id="f-min-year" name="minYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div><div class="filter"><label for="f-max-year">Created to</label><input id="f-max-year" name="maxYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div>`,
 		facets.MinYear, facets.MaxYear, facets.MinYear, facets.MinYear, facets.MaxYear, facets.MaxYear)
 
+	// First-album-date range filter.
+	_, _ = fmt.Fprintf(w, `<div class="filter"><label for="f-min-album">Album from</label><input id="f-min-album" name="minAlbumYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div><div class="filter"><label for="f-max-album">Album to</label><input id="f-max-album" name="maxAlbumYear" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div>`,
+		facets.MinAlbumYear, facets.MaxAlbumYear, facets.MinAlbumYear, facets.MinAlbumYear, facets.MaxAlbumYear, facets.MaxAlbumYear)
+
+	// Member-count range filter.
 	_, _ = fmt.Fprintf(w, `<div class="filter"><label for="f-min-members">Min members</label><input id="f-min-members" name="minMembers" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div><div class="filter"><label for="f-max-members">Max members</label><input id="f-max-members" name="maxMembers" type="number" inputmode="numeric" min="%d" max="%d" placeholder="%d"></div>`,
 		facets.MinMembers, facets.MaxMembers, facets.MinMembers, facets.MinMembers, facets.MaxMembers, facets.MaxMembers)
 
+	// Country dropdown (a quick coarse location filter).
 	_, _ = fmt.Fprint(w, `<div class="filter"><label for="f-country">Country</label><select id="f-country" name="country"><option value="">All countries</option>`)
 	for _, country := range facets.Countries {
 		_, _ = fmt.Fprintf(w, `<option value="%s">%s</option>`, html.EscapeString(country), html.EscapeString(groupie.FormatLocation(country)))
 	}
-	_, _ = fmt.Fprint(w, `</select></div><button type="reset" id="f-clear" class="filter-clear">Clear</button></form>`)
+	_, _ = fmt.Fprint(w, `</select></div>`)
+
+	// Concert-location checkbox filter (multiple selection).
+	writeLocationFilter(w, facets.Locations)
+
+	_, _ = fmt.Fprint(w, `<button type="reset" id="f-clear" class="filter-clear">Clear</button></form>`)
+}
+
+// writeLocationFilter renders the concert-location checkbox filter: a scrollable
+// list of every concert location. Checking one or more narrows the catalog to
+// artists who played at any of them.
+func writeLocationFilter(w http.ResponseWriter, locations []string) {
+	if len(locations) == 0 {
+		return
+	}
+	_, _ = fmt.Fprintf(w, `<fieldset class="filter filter--locations"><legend>Concert locations (%d)</legend><div class="location-list">`, len(locations))
+	for _, slug := range locations {
+		_, _ = fmt.Fprintf(w, `<label class="loc-option"><input type="checkbox" name="location" value="%s"><span>%s</span></label>`,
+			html.EscapeString(slug), html.EscapeString(groupie.FormatLocation(slug)))
+	}
+	_, _ = fmt.Fprint(w, `</div></fieldset>`)
 }
 
 // writeArtistCard renders one catalog card. The browser mirrors this exact

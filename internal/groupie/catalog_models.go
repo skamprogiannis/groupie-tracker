@@ -39,24 +39,30 @@ type SearchResult struct {
 // home page can send. Zero values mean "no constraint", so an empty SearchQuery
 // returns the whole catalog in default order.
 type SearchQuery struct {
-	Text       string
-	MinYear    int
-	MaxYear    int
-	MinMembers int
-	MaxMembers int
-	Country    string
-	Sort       string // "name" (default), "newest", "oldest", "members"
+	Text         string
+	MinYear      int // creation year range
+	MaxYear      int
+	MinAlbumYear int // first-album year range
+	MaxAlbumYear int
+	MinMembers   int
+	MaxMembers   int
+	Country      string
+	Locations    []string // match artists who played any of these location slugs
+	Sort         string   // "name" (default), "newest", "oldest", "members"
 }
 
 // FilterOptions describes the bounds of the dataset so the UI can build filter
-// controls (year range, member range, the list of countries) without hardcoding
-// anything.
+// controls (year ranges, member range, countries, and concert locations)
+// without hardcoding anything.
 type FilterOptions struct {
-	MinYear    int
-	MaxYear    int
-	MinMembers int
-	MaxMembers int
-	Countries  []string
+	MinYear      int
+	MaxYear      int
+	MinAlbumYear int
+	MaxAlbumYear int
+	MinMembers   int
+	MaxMembers   int
+	Countries    []string
+	Locations    []string
 }
 
 type Catalog struct {

@@ -59,6 +59,16 @@ func passesFilters(artist ArtistDetail, q SearchQuery) bool {
 		return false
 	}
 
+	if q.MinAlbumYear > 0 || q.MaxAlbumYear > 0 {
+		albumYear := firstAlbumYear(artist.FirstAlbum)
+		if q.MinAlbumYear > 0 && albumYear < q.MinAlbumYear {
+			return false
+		}
+		if q.MaxAlbumYear > 0 && albumYear > q.MaxAlbumYear {
+			return false
+		}
+	}
+
 	members := len(artist.Members)
 	if q.MinMembers > 0 && members < q.MinMembers {
 		return false
@@ -70,7 +80,37 @@ func passesFilters(artist ArtistDetail, q SearchQuery) bool {
 	if q.Country != "" && !hasCountry(artist.Locations, q.Country) {
 		return false
 	}
+
+	if len(q.Locations) > 0 && !hasAnyLocation(artist.Locations, q.Locations) {
+		return false
+	}
 	return true
+}
+
+// hasAnyLocation reports whether the artist played at any of the wanted location
+// slugs (case-insensitive exact match).
+func hasAnyLocation(artistLocations, wanted []string) bool {
+	played := make(map[string]struct{}, len(artistLocations))
+	for _, loc := range artistLocations {
+		played[strings.ToLower(strings.TrimSpace(loc))] = struct{}{}
+	}
+	for _, want := range wanted {
+		if _, ok := played[strings.ToLower(strings.TrimSpace(want))]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+// firstAlbumYear extracts the 4-digit year from a "DD-MM-YYYY" first-album date,
+// or 0 when it cannot be parsed.
+func firstAlbumYear(firstAlbum string) int {
+	parts := strings.Split(strings.TrimPrefix(strings.TrimSpace(firstAlbum), "*"), "-")
+	year, err := strconv.Atoi(parts[len(parts)-1])
+	if err != nil {
+		return 0
+	}
+	return year
 }
 
 func hasCountry(locations []string, country string) bool {

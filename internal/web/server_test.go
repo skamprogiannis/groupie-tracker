@@ -291,7 +291,13 @@ func (c *fakeCatalog) Artists() []groupie.ArtistSummary {
 }
 
 func (c *fakeCatalog) Facets() groupie.FilterOptions {
-	return groupie.FilterOptions{MinYear: 1970, MaxYear: 1970, MinMembers: 2, MaxMembers: 2, Countries: []string{"uk"}}
+	return groupie.FilterOptions{
+		MinYear: 1970, MaxYear: 1970,
+		MinAlbumYear: 1973, MaxAlbumYear: 1973,
+		MinMembers: 2, MaxMembers: 2,
+		Countries: []string{"uk"},
+		Locations: []string{"london-uk"},
+	}
 }
 
 func (c *fakeCatalog) Locate(_ context.Context, slug string) (geo.Coord, bool) {

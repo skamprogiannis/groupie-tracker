@@ -78,20 +78,24 @@ func summarize(artist ArtistDetail) ArtistSummary {
 }
 
 // Facets reports the dataset bounds used to build the filter controls: the
-// creation-year range, the member-count range, and the sorted list of distinct
-// concert countries.
+// creation-year range, the first-album-year range, the member-count range, the
+// sorted list of distinct concert countries, and every concert location slug.
 func (c *Catalog) Facets() FilterOptions {
 	if c == nil || len(c.artists) == 0 {
 		return FilterOptions{}
 	}
 
+	firstAlbum := firstAlbumYear(c.artists[0].FirstAlbum)
 	opts := FilterOptions{
-		MinYear:    c.artists[0].CreationDate,
-		MaxYear:    c.artists[0].CreationDate,
-		MinMembers: len(c.artists[0].Members),
-		MaxMembers: len(c.artists[0].Members),
+		MinYear:      c.artists[0].CreationDate,
+		MaxYear:      c.artists[0].CreationDate,
+		MinAlbumYear: firstAlbum,
+		MaxAlbumYear: firstAlbum,
+		MinMembers:   len(c.artists[0].Members),
+		MaxMembers:   len(c.artists[0].Members),
 	}
 	countries := make(map[string]struct{})
+	locations := make(map[string]struct{})
 	for _, artist := range c.artists {
 		if artist.CreationDate < opts.MinYear {
 			opts.MinYear = artist.CreationDate
@@ -99,24 +103,39 @@ func (c *Catalog) Facets() FilterOptions {
 		if artist.CreationDate > opts.MaxYear {
 			opts.MaxYear = artist.CreationDate
 		}
+		if year := firstAlbumYear(artist.FirstAlbum); year > 0 {
+			if opts.MinAlbumYear == 0 || year < opts.MinAlbumYear {
+				opts.MinAlbumYear = year
+			}
+			if year > opts.MaxAlbumYear {
+				opts.MaxAlbumYear = year
+			}
+		}
 		if n := len(artist.Members); n < opts.MinMembers {
 			opts.MinMembers = n
 		} else if n > opts.MaxMembers {
 			opts.MaxMembers = n
 		}
 		for _, location := range artist.Locations {
+			locations[location] = struct{}{}
 			if country := countryOf(location); country != "" {
 				countries[country] = struct{}{}
 			}
 		}
 	}
 
-	opts.Countries = make([]string, 0, len(countries))
-	for country := range countries {
-		opts.Countries = append(opts.Countries, country)
-	}
-	sort.Strings(opts.Countries)
+	opts.Countries = sortedKeys(countries)
+	opts.Locations = sortedKeys(locations)
 	return opts
+}
+
+func sortedKeys(set map[string]struct{}) []string {
+	keys := make([]string, 0, len(set))
+	for key := range set {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 // countryOf extracts the country slug from a "city-country" location string,

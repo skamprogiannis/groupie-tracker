@@ -249,8 +249,10 @@ form#searchForm button:active {
 	color: var(--text-dim);
 }
 
-.filter select,
-.filter input {
+/* Direct children only, so the location checkboxes nested in .filter--locations
+   keep their native appearance instead of being styled as text inputs. */
+.filter > select,
+.filter > input {
 	width: 100%;
 	min-width: 0;
 	background: var(--surface-strong);
@@ -261,8 +263,8 @@ form#searchForm button:active {
 	transition: border-color 160ms ease, box-shadow 160ms ease;
 }
 
-.filter select:focus,
-.filter input:focus {
+.filter > select:focus,
+.filter > input:focus {
 	outline: none;
 	border-color: var(--accent);
 	box-shadow: 0 0 0 3px rgba(165, 180, 252, 0.2);
@@ -288,6 +290,60 @@ form#searchForm button:active {
 .filter-clear:hover {
 	background: rgba(165, 180, 252, 0.14);
 	border-color: var(--accent);
+}
+
+/* Concert-location checkbox filter spans the full width of the filter grid. */
+.filter--locations {
+	grid-column: 1 / -1;
+	min-width: 0;
+	margin: 0;
+	padding: 12px 14px;
+	border: 1px solid var(--border);
+	border-radius: 10px;
+}
+
+.filter--locations legend {
+	padding: 0 6px;
+	font-size: 0.72rem;
+	font-weight: 600;
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+	color: var(--text-dim);
+}
+
+.location-list {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+	gap: 6px 14px;
+	max-height: 180px;
+	overflow-y: auto;
+	padding: 4px;
+}
+
+/* Higher specificity than ".filter label" so location names stay readable
+   (normal case, full brightness) rather than inheriting the small-label style. */
+.filter--locations .loc-option {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-width: 0;
+	font-size: 0.85rem;
+	font-weight: 500;
+	letter-spacing: normal;
+	text-transform: none;
+	color: var(--text);
+	cursor: pointer;
+}
+
+.loc-option input {
+	flex: 0 0 auto;
+	accent-color: var(--accent-strong);
+}
+
+.loc-option span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .results-meta {

@@ -31,7 +31,7 @@ The project uses only Go standard library packages.
 
 - `/` - catalog home page with search, filters, and sorting
 - `/artist/{id}` - artist detail page
-- `/api/search?q=...` - JSON search endpoint (also accepts `sort`, `minYear`, `maxYear`, `minMembers`, `maxMembers`, `country`)
+- `/api/search?q=...` - JSON search endpoint (also accepts `sort`, `minYear`, `maxYear`, `minAlbumYear`, `maxAlbumYear`, `minMembers`, `maxMembers`, `country`, and repeated `location`)
 - `/api/geo?id=...` - JSON concert coordinates for the geolocalization map
 - `/healthz` - health check
 - `/static/*` - embedded static assets
@@ -45,9 +45,18 @@ reload. The same endpoint powers the autocomplete dropdown, the filtered catalog
 grid, and the live "showing N of M" count.
 
 Filtering and sorting are applied server-side (in `internal/groupie`), so the
-logic is one tested source of truth: free-text match, creation-year range,
-member-count range, concert country, and sort by name, newest, oldest, or member
-count.
+logic is one tested source of truth. The filter set (Groupie Tracker Filters
+project) covers:
+
+- **Range filters:** creation-date range, first-album-date range, and
+  member-count range.
+- **Checkbox filter:** concert locations (multiple selection) - artists who
+  played any of the checked locations.
+- Plus a country dropdown and free-text search, and sort by name, newest,
+  oldest, or member count.
+
+Every control updates the catalog asynchronously as it changes (no reload), and
+filters combine (logical AND across filter types).
 
 ## Geolocalization (map)
 
