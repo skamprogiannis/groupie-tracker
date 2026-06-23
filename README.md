@@ -1,10 +1,15 @@
-# Groupie Tracker
+# Groupie Tracker Visualizations
 
 **Live site: https://groupietracker-wunu.onrender.com/**
 
-Groupie Tracker is a Zone01 Go web project that will fetch the public Groupie Tracker API and display artist, member, album, location, date, and relation data in a user-friendly website.
+Groupie Tracker Visualizations is a Zone01 Go web project that fetches the
+public Groupie Tracker API and presents artist, member, album, location, date,
+and relation data through a polished, responsive interface.
 
-The current implementation includes the data and server foundation: API fetching, normalized in-memory catalog data, basic route rendering, search JSON, static assets, health checks, and shared error handling.
+This repository targets the optional visualizations subject. It keeps the same
+backend reliability principles as the base Groupie Tracker project, then adds
+CSS-focused presentation, live filtering, async search, responsive layouts, and
+a concert map visualization.
 
 ## Run
 
@@ -25,7 +30,31 @@ go test ./...
 gofmt -w .
 ```
 
-The project uses only Go standard library packages.
+The Go backend uses only standard library packages. Frontend assets are plain
+HTML, CSS, and JavaScript; Leaflet and map tiles are loaded in the browser for
+the geolocalization map.
+
+## Visualization and interface goals
+
+The UI is designed around Schneiderman's 8 Golden Rules:
+
+- Consistent page structure, palette, cards, panels, controls, and focus states.
+- Keyboard-friendly search/autocomplete shortcuts and native form controls.
+- Informative feedback through live result counts, autocomplete options, empty
+  states, HTTP error pages, and map-loading fallback text.
+- Closure through explicit result updates, clear reset controls, and detail-page
+  back navigation.
+- Simple error handling for unknown routes, bad IDs, unavailable data, and map
+  failures.
+- Easy reversal with filter reset, editable search input, and non-destructive
+  GET requests.
+- User control through server-side filters, sorting, search, and direct artist
+  links.
+- Reduced memory load through visible facts, chips, cards, labels, and grouped
+  concert data.
+
+The project contains CSS in `internal/web/static/site.css`, uses a background
+visual layer, and includes responsive behavior for mobile and desktop widths.
 
 ## Routes
 
@@ -74,9 +103,8 @@ Geolocalization project):
   concert, with a popup of the place and dates, and connects them with a dashed
   **date-ordered path** to trace the tour.
 
-As with any map project, the map tiles, the Leaflet library, and the geocoding
-service run in the browser / over HTTP; the Go backend itself uses only the
-standard library.
+As with any map project, the map tiles and Leaflet library run in the browser
+over HTTP. The Go backend itself uses only the standard library.
 
 On the server the query is handled asynchronously:
 
@@ -128,6 +156,8 @@ it warm.
 - Uses artist, location, date, and relation data (joined per artist).
 - Audit examples are covered by tests: Queen members, Gorillaz first album
   `26-03-2001`, Travis Scott locations, Foo Fighters members.
+- The live Groupie Tracker API currently returns `sao_paulo-brazil`; some audit
+  sheets spell the same location as `sao_paulo-brasil`.
 - The client-server event uses the correct HTTP method (`GET`); other methods
   return `405` with an `Allow` header.
 - Unknown routes and invalid/missing artist IDs return a friendly `404`.

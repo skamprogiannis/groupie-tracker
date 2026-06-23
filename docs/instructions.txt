@@ -1,33 +1,37 @@
-Groupie Trackers consists of receiving a given API and manipulating the data contained in it in order to create a website displaying the information.
+Groupie tracker visualizations consists of manipulating the data coming from
+the API and displaying it in the most presentable way possible.
 
-You will be given an API, that is made up of four parts:
+Objectives
 
-artists: Contains information about some bands and artists like their name(s), image, in which year they began their activity, the date of their first album and the members.
+You must follow the same principles as the first subject.
 
-locations: Contains their last and/or upcoming concert locations.
+The Schneiderman's 8 Golden Rules of Interface Design must be followed:
 
-dates: Contains their last and/or upcoming concert dates.
-
-relation: Links the data of all the other parts, artists, dates and locations.
-
-Given all this, you should build a user-friendly website where you can display the band's info through several data visualizations (examples : blocks, cards, tables, lists, pages, graphics, etc). It is up to you to decide how you will display it.
-
-This project also focuses on the creation and visualization of events/actions.
-
-The event/action you need to implement is a client call to the server (client-server). We can say that it is a feature of your choice that needs to trigger an action. This action necessitates communication with the server in order to receive information (request-response).
-
-An event consists of a system that responds to some kind of action triggered by the client, time, or any other factor.
+- Strive for consistency.
+- Enable frequent users to use shortcuts.
+- Offer informative feedback.
+- Design dialogue to yield closure.
+- Offer simple error handling.
+- Permit easy reversal of actions.
+- Support internal locus of control.
+- Reduce short-term memory load.
 
 Instructions
-The backend must be written in Go.
 
-The website and server cannot crash at any time.
+- Your project must contain CSS.
+- The code must respect the good practices.
+- We suggest you to search for the principles of a good website design.
 
-All the pages must work correctly, and you must take care of any errors.
+This project will help you learn about:
 
-The code must respect the good practices.
+- The basics of human-computer interface.
+- The basics of CSS.
+- Linking CSS and HTML.
 
-It is recommended to have test files for unit testing.
+Base Groupie Tracker principles still apply:
 
-Allowed packages
-Only the standard Go packages are allowed.
+- The backend must be written in Go.
+- The website and server cannot crash at any time.
+- All the pages must work correctly, and errors must be handled.
+- It is recommended to have test files for unit testing.
+- Only standard Go packages are allowed for backend Go code.
