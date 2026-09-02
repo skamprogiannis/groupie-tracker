@@ -127,14 +127,28 @@ document.addEventListener('DOMContentLoaded', function () {
     /* ----- the shared client-server search/filter request ----- */
     let searchTimer = null;
 
+    function setSearchState(message, busy) {
+        if (catalog) {
+            catalog.setAttribute('aria-busy', busy ? 'true' : 'false');
+        }
+        if (resultCount) {
+            resultCount.textContent = message;
+        }
+    }
+
     async function runSearch(updateDropdown) {
         const params = buildQuery();
         let data;
+        setSearchState('Updating artists…', true);
         try {
             const res = await fetch('/api/search?' + params.toString());
+            if (!res.ok) {
+                throw new Error('Search request failed with status ' + res.status);
+            }
             data = await res.json();
         } catch (err) {
-            return; // keep the current grid on a network error
+            setSearchState('Could not update artists. Check your connection and try again.', false);
+            return; // keep the current grid so the user can retry without losing it
         }
         const results = data.results || [];
 
@@ -144,10 +158,8 @@ document.addEventListener('DOMContentLoaded', function () {
         if (emptyState) {
             emptyState.hidden = results.length !== 0;
         }
-        if (resultCount) {
-            const total = data.total != null ? data.total : results.length;
-            resultCount.textContent = 'Showing ' + results.length + ' of ' + total + ' artists';
-        }
+        const total = data.total != null ? data.total : results.length;
+        setSearchState('Showing ' + results.length + ' of ' + total + ' artists', false);
 
         if (updateDropdown) {
             const q = ((input && input.value) || '').trim();

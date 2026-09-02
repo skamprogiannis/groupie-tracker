@@ -99,8 +99,8 @@ func (s *Server) home(w http.ResponseWriter, r *http.Request) {
 
 	writeControls(w, facets)
 
-	fmt.Fprintf(w, `<p class="results-meta" id="result-count" aria-live="polite">Showing %d of %d artists</p>`, len(artists), len(artists))
-	fmt.Fprint(w, `<section aria-label="Artists"><ul class="catalog" id="catalog">`)
+	fmt.Fprintf(w, `<p class="results-meta" id="result-count" role="status" aria-live="polite" aria-atomic="true">Showing %d of %d artists</p>`, len(artists), len(artists))
+	fmt.Fprint(w, `<section aria-label="Artists"><ul class="catalog" id="catalog" aria-busy="false">`)
 	for _, artist := range artists {
 		writeArtistCard(w, artist.ID, artist.Name, artist.Image, artist.CreationDate, artist.MemberCount, artist.LocationCount)
 	}

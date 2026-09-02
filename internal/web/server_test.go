@@ -32,6 +32,14 @@ func TestHomeRendersArtistCards(t *testing.T) {
 	assertBodyContains(t, rec, "2 members")
 }
 
+func TestHomeExposesAsyncSearchStatus(t *testing.T) {
+	rec := serveTestRequest(http.MethodGet, "/", newFakeCatalog())
+
+	assertStatus(t, rec, http.StatusOK)
+	assertBodyContains(t, rec, `id="result-count" role="status" aria-live="polite" aria-atomic="true"`)
+	assertBodyContains(t, rec, `id="catalog" aria-busy="false"`)
+}
+
 func TestHomeHandlesEmptyCatalog(t *testing.T) {
 	emptyCatalog := &fakeCatalog{emptyArtists: true}
 
