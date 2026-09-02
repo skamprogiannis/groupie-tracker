@@ -1,4 +1,4 @@
-# Architecture - Groupie Tracker Visualizations
+# Architecture - Groupie Tracker
 
 ## 1. Overview
 

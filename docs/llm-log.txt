@@ -96,3 +96,12 @@ Entries:
    - Copied/Edited: The visualization subject and audit questions were adapted from the user's provided text; README/PRD/architecture wording was newly edited to match the existing implementation.
    - Verification: go test ./... passes; go vet ./... passes; gofmt -l reports no Go files needing formatting; go test -race ./... passes when local httptest sockets are permitted.
    - Affected: README.md, docs/PRD.md, docs/architecture.md, docs/instructions.txt, docs/audit-questions.txt, docs/llm-log.txt.
+
+10. Task: GitHub portfolio publication polish
+   - Date: 2026-09-02
+   - Agent/Model: Codex / GPT-5
+   - Asked: Prepare the completed Groupie Tracker implementation for a public portfolio while preserving the live demo, team attribution, existing design, and project behavior; add CI and make only evidence-backed accessibility fixes.
+   - Action: Reframed the README around the shipped application, architecture, operation, limitations, and contributor roles derived from the team history; added GitHub Actions verification and a lean Docker build context; added explicit busy, success, and recoverable error announcements to asynchronous catalog updates without changing the visual design.
+   - Copied/Edited: No prose or code was copied from an external source. Project claims and contributor roles were summarized from the existing implementation, commit history, architecture notes, and work log.
+   - Verification: gofmt -l, go vet ./..., go test -race ./..., go build ./..., and git diff --check pass. The Impeccable detector reported no findings. A local browser pass confirmed successful search announces its count, failed search announces a retryable error, aria-busy returns to false, and existing cards remain available after failure.
+   - Affected: .dockerignore, .github/workflows/ci.yml, README.md, docs/PRD.md, docs/architecture.md, docs/llm-log.txt, internal/web/server.go, internal/web/server_test.go, internal/web/static/site.js.

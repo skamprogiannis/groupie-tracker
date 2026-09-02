@@ -1,4 +1,4 @@
-# Product Requirements Document (PRD) - Groupie Tracker Visualizations
+# Product Requirements Document (PRD) - Groupie Tracker
 
 ## 1. Problem Statement
 
